@@ -57,6 +57,8 @@ export function App() {
     setScreen('inGame');
   };
 
+  const cloneState = (source: GameState): GameState => JSON.parse(JSON.stringify(source)) as GameState;
+
   if (screen === 'menu') {
     return (
       <div className="shell menu">
@@ -103,7 +105,7 @@ export function App() {
               <div>Week {slot.state.week} · Cash ${Math.round(slot.state.cash)} · Rep {slot.state.reputation.toFixed(0)}</div>
             </div>
             <div className="row">
-              <button onClick={() => { setState(slot.state); setSelectedBuildRoom('treatment'); setScreen('inGame'); }}>Load</button>
+              <button onClick={() => { setState(cloneState(slot.state)); setScreen('inGame'); }}>Load</button>
               <button className="danger" onClick={() => setSlots(deleteSlot(slot.id))}>Delete</button>
             </div>
           </div>
@@ -246,7 +248,8 @@ export function App() {
             <article className="card">
               <h3>Event Log</h3>
               <ul>
-                {state.eventLog.map((line, idx) => <li key={`${line}-${idx}`}>{line}</li>)}
+                {state.eventLog.length === 0 && <li>No events recorded yet.</li>}
+                {state.eventLog.map((line, idx) => <li key={`${idx}-${line}`}>{line}</li>)}
               </ul>
               {campaignProgress && (
                 <div className="campaign-box">
@@ -361,6 +364,7 @@ export function App() {
           <section className="card">
             <h3>Caseload Archetypes</h3>
             <p>Generated queue today: {state.patientQueue.length}</p>
+            {state.patientQueue.length === 0 && <p>No patient queue yet. Run a day to generate demand.</p>}
             <div className="patient-list">
               {state.patientQueue.slice(0, 20).map((p) => (
                 <div key={p.id} className="card compact">
@@ -398,6 +402,7 @@ export function App() {
         {state.selectedTab === 'upgrades' && (
           <section className="card">
             <h3>Upgrade Tree</h3>
+            {!availableUpgrades.length && <p>All upgrades purchased.</p>}
             <div className="upgrade-list">
               {availableUpgrades.map((u) => {
                 const canAfford = state.cash >= u.cost;
