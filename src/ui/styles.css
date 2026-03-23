@@ -40,10 +40,17 @@ button.danger { background: #c44747; }
 .tabs { display: flex; flex-wrap: wrap; gap: 0.45rem; }
 .tabs button.active { background: #17a668; }
 .content { display: grid; gap: 0.8rem; }
+.status-banner { padding: 0.6rem 0.75rem; border-radius: 10px; background: #ecf8ff; color: #145277; font-weight: 600; }
+.warn { color: #9b2f2f; font-weight: 700; }
+.hint-box { margin-top: 0.7rem; padding: 0.75rem; border-radius: 10px; background: #f5fbef; border: 1px solid #d6ebc6; }
 
 .layout-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.35rem; }
 .cell { aspect-ratio: 1/1; border-radius: 8px; background: #dde9f2; color: #1f3d53; }
 .cell.filled { background: #8ecae6; color: #08334f; font-weight: 700; }
+.build-option { width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem; }
+.build-option span { display: grid; gap: 0.15rem; }
+.build-option small { color: #d9efff; }
+.build-option.active { background: #17a668; }
 
 .patient-list, .upgrade-list { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 

@@ -49,7 +49,8 @@ A production-ready browser tycoon/management simulation where you build and scal
 - Save data stored in `localStorage`
 - Slot metadata and payload versioned (`SAVE_VERSION`)
 - Graceful fallback for missing/corrupt storage
-- One-click save from in-game HUD (slot `slot-1` for MVP)
+- Rotating quick-save from in-game HUD across three slots (`slot-1` to `slot-3`)
+- Save sanitization for partially corrupted/older payloads
 
 ## Architecture Overview
 
@@ -83,6 +84,12 @@ Output is generated into `dist/` and is static-host compatible.
 ## Deploy to GitHub Pages
 
 This project is configured with `base: './'` in `vite.config.ts` to support static relative-path hosting on GitHub Pages (project pages style).
+
+Deployment assumptions:
+
+- SPA uses hash-free routes only within in-memory React state, so no server rewrite rules are required.
+- Relative asset paths are required; publishing under repository pages path is supported.
+- `dist/index.html` must be served with JS module MIME types enabled (default for GitHub Pages).
 
 ### Manual deploy
 

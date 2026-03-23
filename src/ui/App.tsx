@@ -11,21 +11,29 @@ export function App() {
   const [screen, setScreen] = useState<Screen>('menu');
   const [state, setState] = useState<GameState | null>(null);
   const [slots, setSlots] = useState<SaveSlot[]>([]);
+  const [selectedBuildRoom, setSelectedBuildRoom] = useState<RoomTypeId | null>(null);
+  const [actionMessage, setActionMessage] = useState<string>('');
 
   useEffect(() => {
     setSlots(loadSlots());
   }, []);
 
   useEffect(() => {
+    if (!actionMessage) return;
+    const id = window.setTimeout(() => setActionMessage(''), 2500);
+    return () => clearTimeout(id);
+  }, [actionMessage]);
+
+  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!state || screen !== 'inGame') return;
       if (event.key === ' ') {
         event.preventDefault();
-        setState({ ...state, paused: !state.paused, speed: state.paused ? 1 : 0 });
+        setState((prev) => (prev ? { ...prev, paused: !prev.paused, speed: prev.paused ? Math.max(prev.speed, 1) as GameState['speed'] : 0 } : prev));
       }
       if (event.key >= '1' && event.key <= '6') {
         const idx = Number(event.key) - 1;
-        setState({ ...state, selectedTab: tabs[idx] ?? state.selectedTab });
+        setState((prev) => (prev ? { ...prev, selectedTab: tabs[idx] ?? prev.selectedTab } : prev));
       }
     };
 
@@ -38,12 +46,14 @@ export function App() {
     const ms = state.speed === 1 ? 2000 : state.speed === 2 ? 1200 : 700;
     const id = window.setInterval(() => setState((prev) => (prev ? runDay(prev) : prev)), ms);
     return () => clearInterval(id);
-  }, [screen, state]);
+  }, [screen, state?.paused, state?.speed]);
 
   const startGame = (mode: GameMode) => {
     const initial = createInitialState(mode);
     initial.settings = loadSettings();
     setState(initial);
+    setSelectedBuildRoom('treatment');
+    setActionMessage('Welcome! Start by running one day, then expand a room or hire staff.');
     setScreen('inGame');
   };
 
@@ -110,12 +120,12 @@ export function App() {
       <div className="shell panel">
         <h2>Quick Onboarding</h2>
         <ol>
-          <li>Run days to generate patients, revenue, and operating friction.</li>
-          <li>Use <strong>Build</strong> to place rooms. Missing rooms block services.</li>
-          <li>Use <strong>Staff</strong> to hire, schedule, and manage fatigue.</li>
-          <li>Watch no-shows, documentation backlog, and wait times in <strong>Overview</strong>.</li>
-          <li>Spend profits in <strong>Upgrades</strong> to unlock new strategies and growth.</li>
-          <li>Save often. Campaign success needs week 12 cash + reputation targets.</li>
+          <li>Run one day first to see your baseline revenue and risk profile.</li>
+          <li>In <strong>Overview</strong>, fix red risk flags before you scale.</li>
+          <li>In <strong>Build</strong>, select a room, then click any + tile to place it.</li>
+          <li>In <strong>Staff</strong>, keep at least one clinician scheduled to treat patients.</li>
+          <li>Invest in <strong>Upgrades</strong> when docs backlog or no-shows become costly.</li>
+          <li>Use three rotating quick-save slots from the HUD every few days.</li>
         </ol>
         <button onClick={() => setScreen('menu')}>Back</button>
       </div>
@@ -150,10 +160,12 @@ export function App() {
   if (!state) return null;
 
   const saveCurrent = () => {
-    const slotId = 'slot-1';
-    const label = `${state.mode.toUpperCase()} - Week ${state.week}`;
+    const slotNum = (state.week % 3) + 1;
+    const slotId = `slot-${slotNum}`;
+    const label = `${state.mode.toUpperCase()} W${state.week} D${state.day}`;
     const updated = saveSlot(slotId, label, state);
     setSlots(updated);
+    setActionMessage(`Saved to slot ${slotNum}.`);
   };
 
   const availableUpgrades = UPGRADES.filter((u) => !state.unlockedUpgrades.includes(u.id));
@@ -166,6 +178,15 @@ export function App() {
       cash: `${Math.round(state.cash)}/${state.campaignGoal.targetCash}`
     };
   }, [state]);
+
+  const onboardingChecklist = [
+    { done: Boolean(state.latestSummary), label: 'Run your first day' },
+    { done: state.rooms.length >= 5 || state.staff.length >= 4, label: 'Add one room or hire one staff member' },
+    { done: state.unlockedUpgrades.length > 0, label: 'Buy your first upgrade' },
+    { done: state.latestSummary ? state.latestSummary.profit > 0 : false, label: 'Finish a profitable day' }
+  ];
+
+  const clinicianScheduled = state.staff.some((s) => s.scheduled && (s.role === 'physio' || s.role === 'assistant' || s.role === 'specialist'));
 
   return (
     <div className="shell game">
@@ -181,8 +202,9 @@ export function App() {
           <div title="Clinic-wide fatigue risk">Fatigue: <strong>{(state.fatigueIndex * 100).toFixed(0)}%</strong></div>
           <div title="Unfinished documentation creates penalties">Docs: <strong>{state.backlogDocs.toFixed(1)}</strong></div>
         </div>
+        {!!actionMessage && <div className="status-banner">{actionMessage}</div>}
         <div className="row">
-          <button onClick={() => setState({ ...state, paused: !state.paused, speed: state.paused ? 1 : 0 })}>{state.paused ? '▶ Resume' : '⏸ Pause'}</button>
+          <button onClick={() => setState({ ...state, paused: !state.paused, speed: state.paused ? Math.max(state.speed, 1) as GameState['speed'] : 0 })}>{state.paused ? '▶ Resume' : '⏸ Pause'}</button>
           <button onClick={() => setState({ ...state, speed: 1, paused: false })}>1x</button>
           <button onClick={() => setState({ ...state, speed: 2, paused: false })}>2x</button>
           <button onClick={() => setState({ ...state, speed: 3, paused: false })}>3x</button>
@@ -206,6 +228,15 @@ export function App() {
               <p>Rooms: {state.rooms.length}/{state.maxClinicSize}</p>
               <p>Staff scheduled: {state.staff.filter((s) => s.scheduled).length}/{state.staff.length}</p>
               <p>Patients generated today: {state.patientQueue.length}</p>
+              {!clinicianScheduled && <p className="warn">⚠ No clinician scheduled. Patients cannot be treated.</p>}
+              {state.settings.showTutorialHints && state.week <= 2 && (
+                <div className="hint-box">
+                  <h4>First 5-Minute Checklist</h4>
+                  <ul>
+                    {onboardingChecklist.map((item) => <li key={item.label}>{item.done ? '✅' : '⬜'} {item.label}</li>)}
+                  </ul>
+                </div>
+              )}
               {state.latestSummary && (
                 <div>
                   <h4>Last Day Summary</h4>
@@ -236,6 +267,7 @@ export function App() {
           <section className="grid-2">
             <article className="card">
               <h3>Layout (6x6)</h3>
+              <p>Select a room type at right, then click a + tile to place. Click a room tile to remove it.</p>
               <div className="layout-grid">
                 {Array.from({ length: 36 }).map((_, i) => {
                   const x = i % 6;
@@ -245,9 +277,21 @@ export function App() {
                     <button
                       key={`${x}-${y}`}
                       className={`cell ${room ? 'filled' : ''}`}
-                      title={room ? `${room.type} (click to remove)` : 'Empty tile'}
+                      title={room ? `${room.type} (click to remove)` : selectedBuildRoom ? `Place ${selectedBuildRoom}` : 'Select a room type first'}
                       onClick={() => {
-                        if (room) setState(removeRoom(state, room.id));
+                        if (room) {
+                          const next = removeRoom(state, room.id);
+                          setState(next);
+                          if (next !== state) setActionMessage(`Removed ${room.type}.`);
+                          return;
+                        }
+                        if (!selectedBuildRoom) {
+                          setActionMessage('Select a room type first.');
+                          return;
+                        }
+                        const next = placeRoom(state, selectedBuildRoom, x, y);
+                        setState(next);
+                        setActionMessage(next === state ? 'Cannot place room here (locked, full, or insufficient cash).' : `Placed ${selectedBuildRoom}.`);
                       }}
                     >
                       {room ? room.type.slice(0, 4) : '+'}
@@ -260,24 +304,21 @@ export function App() {
               <h3>Build Rooms</h3>
               {ROOM_DEFS.map((room) => {
                 const unlocked = state.unlockedRooms.includes(room.id);
+                const affordable = state.cash >= room.cost;
                 return (
-                  <div key={room.id} className="row card compact">
-                    <div>
+                  <button
+                    key={room.id}
+                    className={`build-option ${selectedBuildRoom === room.id ? 'active' : ''}`}
+                    disabled={!unlocked}
+                    onClick={() => setSelectedBuildRoom(room.id as RoomTypeId)}
+                    title={!unlocked ? 'Locked by upgrade' : !affordable ? 'Insufficient cash' : 'Select for placement'}
+                  >
+                    <span>
                       <strong>{room.name}</strong>
-                      <div>${room.cost} · maint ${room.maintenance}/day</div>
-                    </div>
-                    <button
-                      disabled={!unlocked}
-                      onClick={() => {
-                        const free = Array.from({ length: 36 }).map((_, i) => ({ x: i % 6, y: Math.floor(i / 6) }))
-                          .find((c) => !state.rooms.some((r) => r.x === c.x && r.y === c.y));
-                        if (!free) return;
-                        setState(placeRoom(state, room.id as RoomTypeId, free.x, free.y));
-                      }}
-                    >
-                      {unlocked ? 'Place' : 'Locked'}
-                    </button>
-                  </div>
+                      <small>${room.cost} · maint ${room.maintenance}/day</small>
+                    </span>
+                    <span>{!unlocked ? 'Locked' : !affordable ? 'Too Expensive' : 'Select'}</span>
+                  </button>
                 );
               })}
             </article>
@@ -303,15 +344,18 @@ export function App() {
             </article>
             <article className="card">
               <h3>Hire Staff</h3>
-              {STAFF_TEMPLATES.map((t) => (
-                <div key={t.id} className="row card compact">
-                  <div>
-                    <strong>{t.name}</strong>
-                    <div>Hire ${t.hireCost}, wage ${t.baseWage}/day</div>
+              {STAFF_TEMPLATES.map((t) => {
+                const canAfford = state.cash >= t.hireCost;
+                return (
+                  <div key={t.id} className="row card compact">
+                    <div>
+                      <strong>{t.name}</strong>
+                      <div>Hire ${t.hireCost}, wage ${t.baseWage}/day</div>
+                    </div>
+                    <button disabled={!canAfford} onClick={() => setState(hireStaff(state, t.id))}>{canAfford ? 'Hire' : 'Too Expensive'}</button>
                   </div>
-                  <button onClick={() => setState(hireStaff(state, t.id))}>Hire</button>
-                </div>
-              ))}
+                );
+              })}
             </article>
           </section>
         )}
@@ -360,16 +404,19 @@ export function App() {
             <h3>Upgrade Tree</h3>
             {!availableUpgrades.length && <p>All upgrades purchased.</p>}
             <div className="upgrade-list">
-              {availableUpgrades.map((u) => (
-                <div key={u.id} className="row card compact">
-                  <div>
-                    <strong>{u.name}</strong>
-                    <div>{u.description}</div>
-                    <small>${u.cost}</small>
+              {availableUpgrades.map((u) => {
+                const canAfford = state.cash >= u.cost;
+                return (
+                  <div key={u.id} className="row card compact">
+                    <div>
+                      <strong>{u.name}</strong>
+                      <div>{u.description}</div>
+                      <small>${u.cost}</small>
+                    </div>
+                    <button disabled={!canAfford} onClick={() => setState(buyUpgrade(state, u.id))}>{canAfford ? 'Buy' : 'Too Expensive'}</button>
                   </div>
-                  <button onClick={() => setState(buyUpgrade(state, u.id))}>Buy</button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
         )}
@@ -380,7 +427,11 @@ export function App() {
           <div className="panel">
             <h2>{state.gameWon ? 'Campaign Success!' : 'Clinic Crisis'}</h2>
             <p>{state.gameWon ? 'You built a high-performing rehab clinic by week target.' : 'Your clinic hit a failure threshold. Adjust staffing, cashflow, and upgrades next run.'}</p>
-            <button onClick={() => setScreen('menu')}>Return to Main Menu</button>
+            <div className="row">
+              <button onClick={saveCurrent}>Save Snapshot</button>
+              <button onClick={() => startGame(state.mode)}>Retry {state.mode}</button>
+              <button className="ghost" onClick={() => setScreen('menu')}>Return to Main Menu</button>
+            </div>
           </div>
         </div>
       )}
