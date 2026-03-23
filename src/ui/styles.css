@@ -1,0 +1,56 @@
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  color: #0e1e2a;
+  background: #eef4f8;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+button {
+  border: none;
+  border-radius: 10px;
+  padding: 0.55rem 0.85rem;
+  background: #0d7bb8;
+  color: white;
+  cursor: pointer;
+}
+button:hover { filter: brightness(1.06); }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+button.ghost { background: #ced7de; color: #0e1e2a; }
+button.danger { background: #c44747; }
+
+.shell { min-height: 100vh; padding: 1.2rem; }
+.menu { display: grid; place-content: center; gap: 1rem; text-align: center; background: linear-gradient(180deg, #f5fbff, #d7e9f5); }
+.menu-actions { display: grid; gap: 0.7rem; width: 280px; margin: 0 auto; }
+.subtitle { max-width: 760px; margin: 0 auto; color: #3e5567; }
+
+.panel, .card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 1rem;
+  box-shadow: 0 8px 25px rgba(16, 52, 73, 0.08);
+}
+.card.compact { padding: 0.7rem; }
+.row { display: flex; gap: 0.6rem; align-items: center; justify-content: space-between; }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 0.9rem; }
+
+.game { display: grid; grid-template-rows: auto auto 1fr; gap: 0.9rem; }
+.hud { background: #fff; border-radius: 14px; padding: 1rem; box-shadow: 0 8px 24px rgba(18, 43, 65, 0.12); display: grid; gap: 0.7rem; }
+.hud-main { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+.hud-stats { display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.95rem; color: #2f4a5e; }
+.tabs { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.tabs button.active { background: #17a668; }
+.content { display: grid; gap: 0.8rem; }
+
+.layout-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.35rem; }
+.cell { aspect-ratio: 1/1; border-radius: 8px; background: #dde9f2; color: #1f3d53; }
+.cell.filled { background: #8ecae6; color: #08334f; font-weight: 700; }
+
+.patient-list, .upgrade-list { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+.overlay { position: fixed; inset: 0; background: rgba(12, 20, 31, 0.5); display: grid; place-items: center; }
+.campaign-box { margin-top: 1rem; padding: 0.8rem; border-radius: 10px; background: #f1f8fc; }
+
+@media (max-width: 760px) {
+  .hud-main { flex-direction: column; align-items: flex-start; }
+  .row { flex-wrap: wrap; }
+}
