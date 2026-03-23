@@ -65,7 +65,7 @@ const treatmentCapacity = (state: GameState): number => {
 export const runDay = (state: GameState): GameState => {
   if (state.gameOver || state.gameWon) return state;
 
-  let next: GameState = { ...state, day: state.day + 1, paused: true };
+  let next: GameState = { ...state, day: state.day + 1 };
 
   const eventRoll = rand(next.seed + next.day * 13);
   const selectedEvent = EVENT_CARDS.find((_, idx) => eventRoll < EVENT_CARDS.slice(0, idx + 1).reduce((sum, e) => sum + e.chance, 0));
@@ -89,12 +89,18 @@ export const runDay = (state: GameState): GameState => {
   const outcomes: number[] = [];
 
   const staffPool = next.staff.filter((s) => s.scheduled);
+  const hasScheduledStaff = staffPool.length > 0;
 
   for (let i = 0; i < possible.length; i += 1) {
     const visit = possible[i];
     const archetype = getArchetype(visit.archetype);
     const service = getService(visit.service);
-    const staff = staffPool[i % Math.max(1, staffPool.length)];
+    if (!hasScheduledStaff) {
+      noShows += 1;
+      continue;
+    }
+
+    const staff = staffPool[i % staffPool.length];
 
     const noShowChance = clamp(archetype.noShowChance - noShowReduction, 0.02, 0.5);
     if (rand(next.seed + next.day * 31 + i) < noShowChance) {
@@ -158,6 +164,7 @@ export const runDay = (state: GameState): GameState => {
   if (docs > 10) notes.push('Documentation backlog is expensive. Add admin staff or EHR upgrades.');
   if (fatigueIndex > 0.65) notes.push('Staff fatigue is high. Schedule fewer services or improve wellness.');
   if (noShows > treated * 0.25) notes.push('No-show rate is high. Online booking can stabilize attendance.');
+  if (!hasScheduledStaff) notes.push('No staff were scheduled today, so no patients were treated.');
 
   const summary: DaySummary = {
     day: next.day,
@@ -172,6 +179,10 @@ export const runDay = (state: GameState): GameState => {
   };
 
   next.latestSummary = summary;
+  next.eventLog = [
+    `${next.day}: Treated ${treated}, profit $${summary.profit}, rep ${next.reputation.toFixed(0)}.`,
+    ...next.eventLog
+  ].slice(0, 12);
 
   const bankruptcy = next.cash < -5000;
   const reputationCollapse = next.reputation < 5 && next.day > 5;

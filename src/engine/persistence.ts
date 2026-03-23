@@ -7,10 +7,34 @@ const SETTINGS_KEY = 'physio_tycoon_settings_v1';
 
 const sanitizeState = (state: GameState): GameState => {
   if (!state || typeof state !== 'object') return createInitialState('campaign');
-  if ((state.version ?? 0) < SAVE_VERSION) {
-    return { ...createInitialState(state.mode ?? 'campaign'), ...state, version: SAVE_VERSION };
-  }
-  return state;
+  const base = createInitialState(state.mode ?? 'campaign');
+  const merged: GameState = {
+    ...base,
+    ...state,
+    version: SAVE_VERSION,
+    staff: Array.isArray(state.staff) ? state.staff : base.staff,
+    rooms: Array.isArray(state.rooms) ? state.rooms : base.rooms,
+    unlockedUpgrades: Array.isArray(state.unlockedUpgrades) ? state.unlockedUpgrades : base.unlockedUpgrades,
+    unlockedRooms: Array.isArray(state.unlockedRooms) ? state.unlockedRooms : base.unlockedRooms,
+    unlockedServices: Array.isArray(state.unlockedServices) ? state.unlockedServices : base.unlockedServices,
+    patientQueue: Array.isArray(state.patientQueue) ? state.patientQueue : base.patientQueue,
+    eventLog: Array.isArray(state.eventLog) ? state.eventLog : base.eventLog,
+    settings: {
+      soundEnabled: Boolean(state.settings?.soundEnabled ?? base.settings.soundEnabled),
+      ambientEnabled: Boolean(state.settings?.ambientEnabled ?? base.settings.ambientEnabled),
+      showTutorialHints: Boolean(state.settings?.showTutorialHints ?? base.settings.showTutorialHints)
+    },
+    campaignGoal: {
+      targetWeek: state.campaignGoal?.targetWeek ?? base.campaignGoal.targetWeek,
+      targetReputation: state.campaignGoal?.targetReputation ?? base.campaignGoal.targetReputation,
+      targetCash: state.campaignGoal?.targetCash ?? base.campaignGoal.targetCash
+    }
+  };
+
+  merged.clinicSize = merged.rooms.length;
+  merged.maxClinicSize = Math.max(merged.maxClinicSize, 6);
+  merged.speed = [0, 1, 2, 3].includes(merged.speed) ? merged.speed : 0;
+  return merged;
 };
 
 export const loadSlots = (): SaveSlot[] => {
