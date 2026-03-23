@@ -65,7 +65,13 @@ const treatmentCapacity = (state: GameState): number => {
 export const runDay = (state: GameState): GameState => {
   if (state.gameOver || state.gameWon) return state;
 
-  let next: GameState = { ...state, day: state.day + 1, paused: true };
+  let next: GameState = {
+    ...state,
+    day: state.day + 1,
+    staff: state.staff.map((member) => ({ ...member })),
+    rooms: state.rooms.map((room) => ({ ...room })),
+    patientQueue: state.patientQueue.map((visit) => ({ ...visit }))
+  };
 
   const eventRoll = rand(next.seed + next.day * 13);
   const selectedEvent = EVENT_CARDS.find((_, idx) => eventRoll < EVENT_CARDS.slice(0, idx + 1).reduce((sum, e) => sum + e.chance, 0));
