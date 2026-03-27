@@ -604,6 +604,7 @@ export function App() {
               ))}
             </div>
             <p>Current booked queue: {state.patientQueue.length}</p>
+            <p>Active journeys: {state.patients.filter((patient) => patient.lifecycleState !== 'discharged' && patient.lifecycleState !== 'droppedOut').length} · Total tracked patients: {state.patients.length}</p>
             {state.patientQueue.length === 0 && <p>No patient queue yet. Run a day to generate demand.</p>}
             {state.patientQueue.length > 0 && (
               <div className="summary-box">
@@ -615,6 +616,15 @@ export function App() {
               </div>
             )}
             <div className="patient-list">
+              {state.patients.slice(0, 8).map((patient) => (
+                <div key={`journey-${patient.id}`} className="card compact">
+                  <strong>{patient.archetype} · {patient.id.slice(-5)}</strong>
+                  <div>Status: {patient.lifecycleState} · Progress {(patient.clinicalProgress * 100).toFixed(0)}%</div>
+                  <div>Visits remaining: {patient.remainingVisits}/{patient.expectedTotalVisits} · Next: {patient.nextRecommendedService}</div>
+                  <div>Sat {(patient.satisfaction * 100).toFixed(0)} · Adherence {(patient.adherence * 100).toFixed(0)} · Ref {(patient.referralLikelihood * 100).toFixed(0)}%</div>
+                  <div>Bookings: {patient.futureBookings.length ? patient.futureBookings.join(', ') : 'none'}</div>
+                </div>
+              ))}
               {state.patientQueue.slice(0, 20).map((p) => (
                 <div key={p.id} className="card compact">
                   <strong>{p.archetype}</strong>

@@ -67,6 +67,7 @@ export const createInitialState = (mode: GameMode, scenarioId: ScenarioId = DEFA
     { id: uid(), type: 'gym', level: 1, equipmentLevel: 1, focusService: 'exerciseSession', x: 1, y: 1 }
   ],
   patientQueue: [],
+  patients: [],
   demandSnapshot: {
     inboundLeads: 0,
     bookedVisits: 0,

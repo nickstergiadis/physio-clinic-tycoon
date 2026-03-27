@@ -21,23 +21,44 @@ export const fastForwardDays = (state: GameState, days: number): GameState => {
 };
 
 export const spawnSamplePatients = (state: GameState, count = 8): GameState => {
-  const visits = Array.from({ length: count }).map((_, idx) => {
+  const seededPatients = Array.from({ length: count }).map((_, idx) => {
     const archetype = PATIENT_ARCHETYPES[idx % PATIENT_ARCHETYPES.length];
     const service = archetype.preferredServices.find((serviceId) => state.unlockedServices.includes(serviceId)) ?? state.unlockedServices[0] ?? 'initialAssessment';
+    const patientId = uid();
     return {
-      id: uid(),
-      archetype: archetype.id,
-      service,
-      complexity: archetype.complexity,
-      insured: idx % 2 === 0,
-      status: 'waiting' as const
+      patient: {
+        id: patientId,
+        archetype: archetype.id,
+        payerType: idx % 2 === 0 ? 'insured' as const : 'selfPay' as const,
+        lifecycleState: 'booked' as const,
+        clinicalProgress: 0,
+        satisfaction: 0.6,
+        patience: archetype.patience,
+        adherence: archetype.adherence,
+        noShowPropensity: archetype.noShowChance,
+        referralLikelihood: archetype.referralValue * 0.4,
+        expectedTotalVisits: archetype.expectedVisits,
+        remainingVisits: archetype.expectedVisits,
+        nextRecommendedService: service,
+        futureBookings: [state.day]
+      },
+      visit: {
+        id: uid(),
+        patientId,
+        archetype: archetype.id,
+        service,
+        complexity: archetype.complexity,
+        insured: idx % 2 === 0,
+        status: 'waiting' as const
+      }
     };
   });
 
   return {
     ...state,
-    patientQueue: [...state.patientQueue, ...visits],
-    eventLog: [`DEV: Spawned ${visits.length} sample patients.`, ...state.eventLog].slice(0, 12)
+    patientQueue: [...state.patientQueue, ...seededPatients.map((entry) => entry.visit)],
+    patients: [...state.patients, ...seededPatients.map((entry) => entry.patient)],
+    eventLog: [`DEV: Spawned ${seededPatients.length} sample patients.`, ...state.eventLog].slice(0, 12)
   };
 };
 
