@@ -1,11 +1,14 @@
 import { SAVE_VERSION } from '../data/content';
-import { GameMode, GameState, StaffMember, StaffRoleId } from '../types/game';
+import { GameMode, GameState, PatientArchetypeId, StaffMember, StaffRoleId, StaffTraitId } from '../types/game';
 import { uid } from './utils';
 
-const makeStaff = (role: StaffRoleId, name: string, wage: number): StaffMember => ({
+const makeStaff = (role: StaffRoleId, name: string, wage: number, trait: StaffTraitId, specialtyFocus: PatientArchetypeId): StaffMember => ({
   uid: uid(),
   role,
   name,
+  trait,
+  specialtyFocus,
+  assignedRoom: role === 'frontDesk' ? 'reception' : 'flex',
   speed: role === 'specialist' ? 0.88 : role === 'physio' ? 0.74 : 0.67,
   quality: role === 'specialist' ? 0.9 : role === 'physio' ? 0.76 : role === 'assistant' ? 0.56 : 0.45,
   documentation: role === 'frontDesk' ? 0.88 : 0.64,
@@ -14,7 +17,13 @@ const makeStaff = (role: StaffRoleId, name: string, wage: number): StaffMember =
   wage,
   morale: 72,
   fatigue: 18,
-  scheduled: true
+  scheduled: true,
+  shift: 'full',
+  level: 1,
+  xp: 0,
+  trainingDaysRemaining: 0,
+  certifications: role === 'specialist' ? ['vestibularProgram'] : ['followUp'],
+  burnoutRisk: 0.12
 });
 
 export const createInitialState = (mode: GameMode): GameState => ({
@@ -42,15 +51,15 @@ export const createInitialState = (mode: GameMode): GameState => ({
   unlockedRooms: ['reception', 'waiting', 'treatment', 'gym'],
   unlockedServices: ['initialAssessment', 'followUp', 'exerciseSession', 'groupClass', 'postOpPathway'],
   staff: [
-    makeStaff('physio', 'Alex Morgan', 390),
-    makeStaff('frontDesk', 'Jordan Lee', 170),
-    makeStaff('assistant', 'Sam Patel', 205)
+    makeStaff('physio', 'Alex Morgan', 390, 'steady', 'postOp'),
+    makeStaff('frontDesk', 'Jordan Lee', 170, 'empathetic', 'workersComp'),
+    makeStaff('assistant', 'Sam Patel', 205, 'resilient', 'olderAdult')
   ],
   rooms: [
-    { id: uid(), type: 'reception', level: 1, x: 0, y: 0 },
-    { id: uid(), type: 'waiting', level: 1, x: 1, y: 0 },
-    { id: uid(), type: 'treatment', level: 1, x: 0, y: 1 },
-    { id: uid(), type: 'gym', level: 1, x: 1, y: 1 }
+    { id: uid(), type: 'reception', level: 1, equipmentLevel: 1, focusService: 'general', x: 0, y: 0 },
+    { id: uid(), type: 'waiting', level: 1, equipmentLevel: 1, focusService: 'general', x: 1, y: 0 },
+    { id: uid(), type: 'treatment', level: 1, equipmentLevel: 1, focusService: 'initialAssessment', x: 0, y: 1 },
+    { id: uid(), type: 'gym', level: 1, equipmentLevel: 1, focusService: 'exerciseSession', x: 1, y: 1 }
   ],
   patientQueue: [],
   demandSnapshot: {

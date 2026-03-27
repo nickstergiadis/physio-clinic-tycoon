@@ -15,6 +15,8 @@ export type PatientArchetypeId =
 
 export type StaffRoleId = 'physio' | 'assistant' | 'frontDesk' | 'specialist';
 export type RoomTypeId = 'reception' | 'treatment' | 'gym' | 'waiting' | 'vestibularLab' | 'hydro';
+export type StaffTraitId = 'steady' | 'empathetic' | 'fastLearner' | 'resilient' | 'specialistMindset';
+export type ShiftType = 'off' | 'half' | 'full';
 export type ServiceId =
   | 'initialAssessment'
   | 'followUp'
@@ -59,6 +61,9 @@ export interface StaffMember {
   uid: string;
   role: StaffRoleId;
   name: string;
+  trait: StaffTraitId;
+  specialtyFocus: PatientArchetypeId;
+  assignedRoom: RoomTypeId | 'flex';
   speed: number;
   quality: number;
   documentation: number;
@@ -68,6 +73,12 @@ export interface StaffMember {
   morale: number;
   fatigue: number;
   scheduled: boolean;
+  shift: ShiftType;
+  level: number;
+  xp: number;
+  trainingDaysRemaining: number;
+  certifications: ServiceId[];
+  burnoutRisk: number;
 }
 
 export interface RoomDefinition {
@@ -84,6 +95,8 @@ export interface RoomInstance {
   id: string;
   type: RoomTypeId;
   level: number;
+  equipmentLevel: number;
+  focusService: ServiceId | 'general';
   x: number;
   y: number;
 }
@@ -97,6 +110,9 @@ export interface ServiceDefinition {
   fatigueImpact: number;
   adminLoad: number;
   requiredRoom: RoomTypeId;
+  preferredSpecialties: PatientArchetypeId[];
+  facilitySensitivity: number;
+  equipmentSensitivity: number;
 }
 
 export interface UpgradeDefinition {
@@ -196,6 +212,12 @@ export interface DaySummary {
   noShows: number;
   avgOutcome: number;
   avgWait: number;
+  bottlenecks: {
+    staffing: number;
+    room: number;
+    equipment: number;
+    burnout: number;
+  };
   notes: string[];
 }
 

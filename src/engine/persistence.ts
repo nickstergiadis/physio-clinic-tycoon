@@ -23,6 +23,14 @@ const migrateState = (state: Partial<GameState>, fromVersion: number): Partial<G
     };
   }
 
+  if (fromVersion < 4) {
+    return {
+      ...state,
+      staff: state.staff ?? undefined,
+      rooms: state.rooms ?? undefined
+    };
+  }
+
   return state;
 };
 
@@ -34,8 +42,29 @@ const sanitizeState = (state: GameState): GameState => {
     ...base,
     ...migrated,
     version: SAVE_VERSION,
-    staff: Array.isArray(migrated.staff) ? migrated.staff : base.staff,
-    rooms: Array.isArray(migrated.rooms) ? migrated.rooms : base.rooms,
+    staff: Array.isArray(migrated.staff)
+      ? migrated.staff.map((member, idx) => ({
+          ...base.staff[Math.min(idx, base.staff.length - 1)],
+          ...member,
+          assignedRoom: member.assignedRoom ?? (member.role === 'frontDesk' ? 'reception' : 'flex'),
+          trait: member.trait ?? 'steady',
+          specialtyFocus: member.specialtyFocus ?? 'officeWorker',
+          shift: member.shift ?? (member.scheduled ? 'full' : 'off'),
+          level: member.level ?? 1,
+          xp: member.xp ?? 0,
+          trainingDaysRemaining: member.trainingDaysRemaining ?? 0,
+          certifications: Array.isArray(member.certifications) ? member.certifications : [],
+          burnoutRisk: member.burnoutRisk ?? 0.1
+        }))
+      : base.staff,
+    rooms: Array.isArray(migrated.rooms)
+      ? migrated.rooms.map((room, idx) => ({
+          ...base.rooms[Math.min(idx, base.rooms.length - 1)],
+          ...room,
+          equipmentLevel: room.equipmentLevel ?? 1,
+          focusService: room.focusService ?? 'general'
+        }))
+      : base.rooms,
     unlockedUpgrades: Array.isArray(migrated.unlockedUpgrades) ? migrated.unlockedUpgrades : base.unlockedUpgrades,
     unlockedRooms: Array.isArray(migrated.unlockedRooms) ? migrated.unlockedRooms : base.unlockedRooms,
     unlockedServices: Array.isArray(migrated.unlockedServices) ? migrated.unlockedServices : base.unlockedServices,
