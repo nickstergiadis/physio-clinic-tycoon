@@ -1,12 +1,14 @@
 import {
+  DifficultyPreset,
   PatientArchetype,
   RoomDefinition,
+  SimulationBalance,
   ServiceDefinition,
   StaffTemplate,
   UpgradeDefinition
 } from '../types/game';
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export const PATIENT_ARCHETYPES: PatientArchetype[] = [
   {
@@ -231,3 +233,39 @@ export const UPGRADES: UpgradeDefinition[] = [
   { id: 'hydro_program', name: 'Hydro Therapy Program', cost: 7400, description: 'Unlock hydro room and specialty service access.', effects: { unlockRooms: ['hydro'], qualityBonus: 0.08 } },
   { id: 'advanced_certification', name: 'Advanced Clinical Certification', cost: 6400, description: 'Boost quality outcomes in complex cohorts.', effects: { qualityBonus: 0.1 } }
 ];
+
+export const DIFFICULTY_PRESETS: DifficultyPreset[] = [
+  { id: 'relaxed', name: 'Relaxed', demandMultiplier: 1, revenueMultiplier: 1, expenseMultiplier: 1 },
+  { id: 'standard', name: 'Standard', demandMultiplier: 1, revenueMultiplier: 1, expenseMultiplier: 1 },
+  { id: 'hardcore', name: 'Hardcore', demandMultiplier: 1, revenueMultiplier: 1, expenseMultiplier: 1 }
+];
+
+export const SIMULATION_BALANCE: SimulationBalance = {
+  minDailyDemand: 5,
+  maxDailyDemand: 40,
+  referralsToDemand: 0.8,
+  reputationToDemand: 0.1,
+  uninsuredThreshold: 0.35,
+  capacityPerStaff: 5.4,
+  fatigueCapacityDivisor: 200,
+  roomThroughputUnit: 6,
+  overcrowdThreshold: 4,
+  overcrowdPenalty: 0.8,
+  baseNoShowBuffer: 0.015,
+  minNoShowChance: 0.02,
+  maxNoShowChance: 0.45,
+  comfortCapacityRatio: 0.6,
+  waitUnitMinutes: 4,
+  qualityFatigueDivisor: 220,
+  fatigueServiceScale: 16,
+  fatigueResistanceWeight: 0.45,
+  moraleGainScaling: 0.05,
+  insuredRevenueMultiplier: 0.92,
+  selfPayRevenueMultiplier: 1.12,
+  adminReductionWeight: 1.1,
+  documentationThroughput: 2.8,
+  docsPenaltyThreshold: 11,
+  docsPenaltyUnit: 14,
+  dailyFatigueRecovery: 10,
+  lowResistanceRecoveryPenalty: 1.8
+};

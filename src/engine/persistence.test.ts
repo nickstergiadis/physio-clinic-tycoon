@@ -48,6 +48,8 @@ describe('persistence', () => {
     const slots = loadSlots();
     expect(slots[0].state.rooms.length).toBeGreaterThan(0);
     expect(Array.isArray(slots[0].state.staff)).toBe(true);
+    expect(slots[0].state.scenarioId).toBe('default');
+    expect(slots[0].state.difficultyPreset).toBe('standard');
   });
 
   it('persists settings', () => {
