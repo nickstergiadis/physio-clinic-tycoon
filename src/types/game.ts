@@ -177,11 +177,33 @@ export interface DaySummary {
   revenue: number;
   expenses: number;
   profit: number;
+  fixedCosts: number;
+  variableCosts: number;
+  daysUntilWeeklyCosts: number;
+  weeklyCostsDueNext: number;
+  inboundLeads: number;
+  bookedVisits: number;
+  attendedVisits: number;
+  utilization: number;
+  lostDemand: {
+    unbooked: number;
+    serviceMismatch: number;
+    capacity: number;
+    cancellations: number;
+    noShows: number;
+  };
   treated: number;
   noShows: number;
   avgOutcome: number;
   avgWait: number;
   notes: string[];
+}
+
+export interface WeeklyLedger {
+  revenue: number;
+  variableCosts: number;
+  attendedVisits: number;
+  noShows: number;
 }
 
 export interface SaveSlot {
@@ -225,6 +247,27 @@ export interface GameState {
   staff: StaffMember[];
   rooms: RoomInstance[];
   patientQueue: PatientVisit[];
+  demandSnapshot: {
+    inboundLeads: number;
+    bookedVisits: number;
+    utilization: number;
+    lostDemand: {
+      unbooked: number;
+      serviceMismatch: number;
+      capacity: number;
+      cancellations: number;
+      noShows: number;
+    };
+  };
+  weeklyLedger: WeeklyLedger;
+  operationalModifiers: {
+    leadMultiplier: number;
+    bookingShift: number;
+    cancellationShift: number;
+    noShowShift: number;
+    variableCostShift: number;
+    note?: string;
+  };
   backlogDocs: number;
   fatigueIndex: number;
   latestSummary?: DaySummary;

@@ -66,7 +66,8 @@ describe('playability go-live audit flow', () => {
   it('reports coherent failure and success thresholds', () => {
     const failState = {
       ...createInitialState('campaign'),
-      cash: -15000
+      day: 21,
+      cash: -30000
     };
     const failed = runDay(failState);
     expect(failed.gameOver).toBe(true);
