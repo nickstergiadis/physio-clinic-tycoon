@@ -1,6 +1,7 @@
 export type GameMode = 'campaign' | 'sandbox';
 export type Screen = 'menu' | 'newGame' | 'loadGame' | 'tutorial' | 'settings' | 'inGame';
 export type GameSpeed = 0 | 1 | 2 | 3;
+export type DifficultyPresetId = 'relaxed' | 'standard' | 'hardcore';
 
 export type PatientArchetypeId =
   | 'athlete'
@@ -116,6 +117,44 @@ export interface UpgradeDefinition {
   };
 }
 
+export interface DifficultyPreset {
+  id: DifficultyPresetId;
+  name: string;
+  demandMultiplier: number;
+  revenueMultiplier: number;
+  expenseMultiplier: number;
+}
+
+export interface SimulationBalance {
+  minDailyDemand: number;
+  maxDailyDemand: number;
+  referralsToDemand: number;
+  reputationToDemand: number;
+  uninsuredThreshold: number;
+  capacityPerStaff: number;
+  fatigueCapacityDivisor: number;
+  roomThroughputUnit: number;
+  overcrowdThreshold: number;
+  overcrowdPenalty: number;
+  baseNoShowBuffer: number;
+  minNoShowChance: number;
+  maxNoShowChance: number;
+  comfortCapacityRatio: number;
+  waitUnitMinutes: number;
+  qualityFatigueDivisor: number;
+  fatigueServiceScale: number;
+  fatigueResistanceWeight: number;
+  moraleGainScaling: number;
+  insuredRevenueMultiplier: number;
+  selfPayRevenueMultiplier: number;
+  adminReductionWeight: number;
+  documentationThroughput: number;
+  docsPenaltyThreshold: number;
+  docsPenaltyUnit: number;
+  dailyFatigueRecovery: number;
+  lowResistanceRecoveryPenalty: number;
+}
+
 export interface EventCard {
   id: string;
   name: string;
@@ -163,6 +202,8 @@ export interface GameState {
   version: number;
   seed: number;
   mode: GameMode;
+  scenarioId: string;
+  difficultyPreset: DifficultyPresetId;
   day: number;
   week: number;
   cash: number;

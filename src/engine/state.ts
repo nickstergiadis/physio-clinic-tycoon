@@ -21,6 +21,8 @@ export const createInitialState = (mode: GameMode): GameState => ({
   version: SAVE_VERSION,
   seed: Date.now() % 100000,
   mode,
+  scenarioId: 'default',
+  difficultyPreset: mode === 'sandbox' ? 'relaxed' : 'standard',
   day: 1,
   week: 1,
   cash: mode === 'sandbox' ? 50000 : 22000,

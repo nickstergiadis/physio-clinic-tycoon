@@ -5,29 +5,42 @@ import { createInitialState } from './state';
 const SLOTS_KEY = 'physio_tycoon_slots_v1';
 const SETTINGS_KEY = 'physio_tycoon_settings_v1';
 
+const migrateState = (state: Partial<GameState>, fromVersion: number): Partial<GameState> => {
+  if (fromVersion < 2) {
+    return {
+      ...state,
+      scenarioId: state.scenarioId ?? 'default',
+      difficultyPreset: state.difficultyPreset ?? (state.mode === 'sandbox' ? 'relaxed' : 'standard')
+    };
+  }
+
+  return state;
+};
+
 const sanitizeState = (state: GameState): GameState => {
   if (!state || typeof state !== 'object') return createInitialState('campaign');
-  const base = createInitialState(state.mode ?? 'campaign');
+  const migrated = migrateState(state, state.version ?? 1);
+  const base = createInitialState(migrated.mode ?? 'campaign');
   const merged: GameState = {
     ...base,
-    ...state,
+    ...migrated,
     version: SAVE_VERSION,
-    staff: Array.isArray(state.staff) ? state.staff : base.staff,
-    rooms: Array.isArray(state.rooms) ? state.rooms : base.rooms,
-    unlockedUpgrades: Array.isArray(state.unlockedUpgrades) ? state.unlockedUpgrades : base.unlockedUpgrades,
-    unlockedRooms: Array.isArray(state.unlockedRooms) ? state.unlockedRooms : base.unlockedRooms,
-    unlockedServices: Array.isArray(state.unlockedServices) ? state.unlockedServices : base.unlockedServices,
-    patientQueue: Array.isArray(state.patientQueue) ? state.patientQueue : base.patientQueue,
-    eventLog: Array.isArray(state.eventLog) ? state.eventLog : base.eventLog,
+    staff: Array.isArray(migrated.staff) ? migrated.staff : base.staff,
+    rooms: Array.isArray(migrated.rooms) ? migrated.rooms : base.rooms,
+    unlockedUpgrades: Array.isArray(migrated.unlockedUpgrades) ? migrated.unlockedUpgrades : base.unlockedUpgrades,
+    unlockedRooms: Array.isArray(migrated.unlockedRooms) ? migrated.unlockedRooms : base.unlockedRooms,
+    unlockedServices: Array.isArray(migrated.unlockedServices) ? migrated.unlockedServices : base.unlockedServices,
+    patientQueue: Array.isArray(migrated.patientQueue) ? migrated.patientQueue : base.patientQueue,
+    eventLog: Array.isArray(migrated.eventLog) ? migrated.eventLog : base.eventLog,
     settings: {
-      soundEnabled: Boolean(state.settings?.soundEnabled ?? base.settings.soundEnabled),
-      ambientEnabled: Boolean(state.settings?.ambientEnabled ?? base.settings.ambientEnabled),
-      showTutorialHints: Boolean(state.settings?.showTutorialHints ?? base.settings.showTutorialHints)
+      soundEnabled: Boolean(migrated.settings?.soundEnabled ?? base.settings.soundEnabled),
+      ambientEnabled: Boolean(migrated.settings?.ambientEnabled ?? base.settings.ambientEnabled),
+      showTutorialHints: Boolean(migrated.settings?.showTutorialHints ?? base.settings.showTutorialHints)
     },
     campaignGoal: {
-      targetWeek: state.campaignGoal?.targetWeek ?? base.campaignGoal.targetWeek,
-      targetReputation: state.campaignGoal?.targetReputation ?? base.campaignGoal.targetReputation,
-      targetCash: state.campaignGoal?.targetCash ?? base.campaignGoal.targetCash
+      targetWeek: migrated.campaignGoal?.targetWeek ?? base.campaignGoal.targetWeek,
+      targetReputation: migrated.campaignGoal?.targetReputation ?? base.campaignGoal.targetReputation,
+      targetCash: migrated.campaignGoal?.targetCash ?? base.campaignGoal.targetCash
     }
   };
 
