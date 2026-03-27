@@ -1,35 +1,12 @@
-import { PATIENT_ARCHETYPES, ROOM_DEFS, SERVICES, STAFF_TEMPLATES } from '../data/content';
-import { DaySummary, GameState, PatientArchetype, PatientVisit, RoomTypeId, ServiceId, StaffMember } from '../types/game';
-import { average, clamp, rand, uid } from './utils';
+import { DaySummary, GameState, PatientVisit } from '../types/game';
+import { average, clamp } from './utils';
 import { applyRandomEvent } from './events';
 import { BALANCE, getDifficultyPreset, sumUpgradeEffect } from './simulationConfig';
 import { applyReputationTiers, evaluateObjectives, getScenario, isScenarioFailed, isScenarioWon } from './campaign';
-
-const getArchetype = (id: string): PatientArchetype => PATIENT_ARCHETYPES.find((p) => p.id === id) ?? PATIENT_ARCHETYPES[0];
-const getService = (id: ServiceId) => SERVICES.find((s) => s.id === id) ?? SERVICES[0];
-const randomArchetype = (seed: number): PatientArchetype => PATIENT_ARCHETYPES[Math.floor(rand(seed) * PATIENT_ARCHETYPES.length)];
-const weightedArchetype = (seed: number, state: GameState): PatientArchetype => {
-  const scenario = getScenario(state.scenarioId);
-  const withWeight = PATIENT_ARCHETYPES.map((archetype) => ({
-    archetype,
-    weight: 1 + (scenario.demandMixBias[archetype.id] ?? 0)
-  }));
-  const total = withWeight.reduce((sum, item) => sum + item.weight, 0);
-  let roll = rand(seed) * total;
-  for (const item of withWeight) {
-    roll -= item.weight;
-    if (roll <= 0) return item.archetype;
-  }
-  return randomArchetype(seed);
-};
-const hasRoom = (state: GameState, roomType: RoomTypeId): boolean => state.rooms.some((room) => room.type === roomType);
-const shiftCapacityFactor = (shift: StaffMember['shift']): number => (shift === 'full' ? 1 : shift === 'half' ? 0.62 : 0);
-
-const totalWeeklyFixedCosts = (state: GameState): number => {
-  const payroll = state.staff.reduce((sum, staffMember) => sum + staffMember.wage, 0) * 7;
-  const roomMaintenance = state.rooms.reduce((sum, room) => sum + (ROOM_DEFS.find((def) => def.id === room.type)?.maintenance ?? 0), 0) * 7;
-  return payroll + state.rent * 7 + state.equipmentCost * 7 + roomMaintenance;
-};
+import { calculateDemandInputs } from './demandGeneration';
+import { generateAppointments } from './appointmentGeneration';
+import { buildWeeklyLedger, resolveDailyEconomy, totalWeeklyFixedCosts } from './economy';
+import { resolveVisits, treatmentCapacity } from './visitResolution';
 
 interface DemandBuild {
   leads: number;
@@ -39,186 +16,14 @@ interface DemandBuild {
 }
 
 const buildDailyDemand = (state: GameState): DemandBuild => {
-  const preset = getDifficultyPreset(state.difficultyPreset);
-  const modifier = state.operationalModifiers;
-  const baseDemand = Math.max(BALANCE.minDailyDemand, Math.round(state.referrals * BALANCE.referralsToDemand + state.reputation * BALANCE.reputationToDemand));
-  const demandMult = (1 + sumUpgradeEffect(state, (effects) => effects.referralMult)) * preset.demandMultiplier * modifier.leadMultiplier;
-  const leads = Math.min(BALANCE.maxDailyDemand + 18, Math.round(baseDemand * demandMult));
-  const bookingRate = clamp(
-    0.52 + state.reputation * 0.002 + state.staff.reduce((sum, member) => sum + member.communication, 0) / Math.max(1, state.staff.length * 12) + modifier.bookingShift,
-    0.4,
-    0.93
-  );
-
-  const booked: PatientVisit[] = [];
-  let lostUnbooked = 0;
-  let lostServiceMismatch = 0;
-
-  for (let i = 0; i < leads; i += 1) {
-    const seed = state.seed + state.day * 97 + i * 17;
-    if (rand(seed + 99) > bookingRate) {
-      lostUnbooked += 1;
-      continue;
-    }
-
-    const archetype = weightedArchetype(seed, state);
-    const servicePool = archetype.preferredServices.filter((serviceId) => state.unlockedServices.includes(serviceId));
-    const service = servicePool[Math.floor(rand(seed + 3) * servicePool.length)];
-
-    if (!service) {
-      lostServiceMismatch += 1;
-      continue;
-    }
-
-    booked.push({
-      id: uid(),
-      archetype: archetype.id,
-      service,
-      complexity: archetype.complexity,
-      insured: rand(seed + 7) > BALANCE.uninsuredThreshold,
-      status: 'waiting'
-    });
-  }
-
-  return { leads, booked, lostUnbooked, lostServiceMismatch };
-};
-
-const treatmentCapacity = (state: GameState): number => {
-  const activeStaff = state.staff.filter((staffMember) => staffMember.scheduled);
-  const staffCapacity = activeStaff.reduce(
-    (sum, staffMember) =>
-      sum +
-      BALANCE.capacityPerStaff *
-        shiftCapacityFactor(staffMember.shift) *
-        staffMember.speed *
-        (1 - staffMember.fatigue / BALANCE.fatigueCapacityDivisor) *
-        (1 - staffMember.burnoutRisk * 0.18),
-    0
-  );
-  const roomBonus = state.rooms.reduce((sum, room) => {
-    const def = ROOM_DEFS.find((roomDef) => roomDef.id === room.type);
-    return sum + (def?.throughputBonus ?? 0) * BALANCE.roomThroughputUnit * (1 + (room.equipmentLevel - 1) * 0.08);
-  }, 0);
-  const overcrowdPenalty = state.rooms.length < BALANCE.overcrowdThreshold ? BALANCE.overcrowdPenalty : 1;
-  return Math.max(0, Math.floor((staffCapacity + roomBonus) * overcrowdPenalty));
-};
-
-interface VisitResolution {
-  revenue: number;
-  variableCosts: number;
-  adminLoad: number;
-  totalWait: number;
-  cancellations: number;
-  noShows: number;
-  attended: number;
-  capacityLost: number;
-  outcomes: number[];
-  staffingBottlenecks: number;
-  roomBottlenecks: number;
-  equipmentBottlenecks: number;
-  burnoutPressure: number;
-}
-
-const staffServiceFit = (staff: StaffMember, archetype: PatientArchetype, serviceId: ServiceId, requiredRoom: RoomTypeId): number => {
-  const roleSpecialty = STAFF_TEMPLATES.find((template) => template.id === staff.role)?.specialtyBonus[archetype.id] ?? 0;
-  const focusBonus = staff.specialtyFocus === archetype.id ? 0.08 : 0;
-  const certBonus = staff.certifications.includes(serviceId) ? 0.06 : 0;
-  const roomFit = staff.assignedRoom === 'flex' || staff.assignedRoom === requiredRoom ? 0.04 : -0.05;
-  const fatiguePenalty = staff.fatigue > 75 ? -0.06 : 0;
-  return roleSpecialty + focusBonus + certBonus + roomFit + fatiguePenalty;
-};
-
-const resolveVisits = (state: GameState, queue: PatientVisit[], capacity: number): VisitResolution => {
-  const processable = queue.slice(0, capacity);
-  const capacityLost = Math.max(0, queue.length - capacity);
-  const noShowReduction = sumUpgradeEffect(state, (effects) => effects.noShowReduction);
-  const qualityBonus = sumUpgradeEffect(state, (effects) => effects.qualityBonus);
-  const premiumBonus = sumUpgradeEffect(state, (effects) => effects.premiumPricing);
-  const moraleGain = sumUpgradeEffect(state, (effects) => effects.moraleGain);
-
-  const preset = getDifficultyPreset(state.difficultyPreset);
-  const staffPool = state.staff.filter((staffMember) => staffMember.scheduled);
-  const hasScheduledStaff = staffPool.length > 0;
-  const modifier = state.operationalModifiers;
-
-  let revenue = 0;
-  let variableCosts = 0;
-  let adminLoad = 0;
-  let totalWait = 0;
-  let cancellations = 0;
-  let noShows = 0;
-  let attended = 0;
-  const outcomes: number[] = [];
-  let staffingBottlenecks = 0;
-  let roomBottlenecks = 0;
-  let equipmentBottlenecks = 0;
-  let burnoutPressure = 0;
-
-  for (let i = 0; i < processable.length; i += 1) {
-    const visit = processable[i];
-    const archetype = getArchetype(visit.archetype);
-    const service = getService(visit.service);
-
-    if (!hasScheduledStaff) {
-      staffingBottlenecks += 1;
-      cancellations += 1;
-      continue;
-    }
-    const serviceRooms = state.rooms.filter((room) => room.type === service.requiredRoom);
-    if (serviceRooms.length === 0 || !hasRoom(state, service.requiredRoom)) {
-      roomBottlenecks += 1;
-      cancellations += 1;
-      continue;
-    }
-    const eligibleStaff = staffPool.filter((staff) => staff.assignedRoom === 'flex' || staff.assignedRoom === service.requiredRoom);
-    if (eligibleStaff.length === 0) {
-      staffingBottlenecks += 1;
-      cancellations += 1;
-      continue;
-    }
-    const staff = [...eligibleStaff].sort((a, b) => staffServiceFit(b, archetype, service.id, service.requiredRoom) - staffServiceFit(a, archetype, service.id, service.requiredRoom))[0];
-    const cancellationChance = clamp(0.04 + archetype.complexity * 0.08 + modifier.cancellationShift + preset.cancellationShift, 0.01, 0.35);
-    if (rand(state.seed + state.day * 41 + i) < cancellationChance) {
-      cancellations += 1;
-      continue;
-    }
-
-    const noShowChance = clamp(
-      archetype.noShowChance - (BALANCE.baseNoShowBuffer + noShowReduction) + modifier.noShowShift + preset.noShowShift,
-      BALANCE.minNoShowChance,
-      BALANCE.maxNoShowChance
-    );
-    if (rand(state.seed + state.day * 31 + i) < noShowChance) {
-      noShows += 1;
-      continue;
-    }
-
-    const wait = Math.max(0, (i + 1 - capacity * BALANCE.comfortCapacityRatio) * BALANCE.waitUnitMinutes);
-    const matchingFocusedRoom = serviceRooms.filter((room) => room.focusService === service.id).length;
-    const avgEquipment = average(serviceRooms.map((room) => room.equipmentLevel));
-    const facilityFit = (avgEquipment - 1) * 0.08 * service.equipmentSensitivity + (matchingFocusedRoom / serviceRooms.length) * 0.06 * service.facilitySensitivity;
-    if (service.equipmentSensitivity > 0.35 && avgEquipment < 1.6) equipmentBottlenecks += 1;
-    const specialty = staffServiceFit(staff, archetype, service.id, service.requiredRoom);
-    const burnoutPenalty = staff.burnoutRisk * 0.08;
-    const quality = clamp(staff.quality + service.qualityImpact + qualityBonus + specialty + facilityFit - burnoutPenalty - staff.fatigue / BALANCE.qualityFatigueDivisor, 0.2, 1.3);
-    const outcome = clamp((quality * archetype.improvementSpeed + archetype.adherence * 0.25) * (1 - archetype.complexity * 0.35), 0, 1);
-    const satisfaction = clamp(0.7 + quality * 0.3 - (wait / 100) * archetype.satisfactionSensitivity, 0, 1.2);
-
-    const payerMultiplier = visit.insured ? BALANCE.insuredRevenueMultiplier : BALANCE.selfPayRevenueMultiplier;
-    revenue += service.baseRevenue * (1 + premiumBonus + facilityFit * 0.3) * payerMultiplier * preset.revenueMultiplier;
-    variableCosts += (service.baseRevenue * 0.14 + service.duration * 0.7) * (1 + modifier.variableCostShift);
-    adminLoad += service.adminLoad + archetype.adminBurden;
-    totalWait += wait;
-    outcomes.push(outcome);
-    attended += 1;
-
-    const fatigueGain = service.fatigueImpact * BALANCE.fatigueServiceScale * (1 - staff.fatigueResistance * BALANCE.fatigueResistanceWeight);
-    staff.fatigue = clamp(staff.fatigue + fatigueGain, 0, 100);
-    staff.morale = clamp(staff.morale + (satisfaction - 0.6) * 5 + moraleGain * BALANCE.moraleGainScaling, 0, 100);
-    burnoutPressure += staff.fatigue > 70 ? 1 : 0;
-  }
-
-  return { revenue, variableCosts, adminLoad, totalWait, cancellations, noShows, attended, capacityLost, outcomes, staffingBottlenecks, roomBottlenecks, equipmentBottlenecks, burnoutPressure };
+  const { leads, bookingRate } = calculateDemandInputs(state);
+  const appointments = generateAppointments(state, leads, bookingRate);
+  return {
+    leads,
+    booked: appointments.booked,
+    lostUnbooked: appointments.lostUnbooked,
+    lostServiceMismatch: appointments.lostServiceMismatch
+  };
 };
 
 export const generatePatients = (state: GameState): PatientVisit[] => buildDailyDemand(state).booked;
@@ -255,21 +60,12 @@ export const runDay = (state: GameState): GameState => {
   const weeklyFixedCosts = totalWeeklyFixedCosts(next);
   const notes: string[] = [];
 
-  const dayOfWeek = ((next.day - 1) % 7) + 1;
-  const weeklyCostsApplied = dayOfWeek === 7 ? weeklyFixedCosts : 0;
-  const daysUntilWeeklyCosts = dayOfWeek === 7 ? 7 : 7 - dayOfWeek;
+  const economy = resolveDailyEconomy(next, visits.revenue, variableCosts, weeklyFixedCosts);
+  const { dayOfWeek, weeklyCostsApplied, daysUntilWeeklyCosts, expenses, profit } = economy;
+
+  const updatedLedger = buildWeeklyLedger(next, dayOfWeek, visits.revenue, variableCosts, visits.attended, visits.noShows);
 
   const preset = getDifficultyPreset(next.difficultyPreset);
-  const expenses = (variableCosts + weeklyCostsApplied) * preset.expenseMultiplier;
-  const profit = visits.revenue - expenses;
-
-  const updatedLedger = {
-    revenue: dayOfWeek === 7 ? 0 : next.weeklyLedger.revenue + visits.revenue,
-    variableCosts: dayOfWeek === 7 ? 0 : next.weeklyLedger.variableCosts + variableCosts,
-    attendedVisits: dayOfWeek === 7 ? 0 : next.weeklyLedger.attendedVisits + visits.attended,
-    noShows: dayOfWeek === 7 ? 0 : next.weeklyLedger.noShows + visits.noShows
-  };
-
   const reputationDelta = clamp(
     (avgOutcome - 0.46) * 8 + utilization * 1.4 - avgWait * 0.025 - visits.noShows * 0.045 - visits.cancellations * 0.04 - docs * 0.025,
     -3,
@@ -411,7 +207,7 @@ export const runDay = (state: GameState): GameState => {
     leadMultiplier: 1,
     bookingShift: 0,
     cancellationShift: 0,
-    noShowShift: 0,
+    noShowShift: next.dev?.highNoShowMode ? 0.2 : 0,
     variableCostShift: 0
   };
 

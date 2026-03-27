@@ -113,6 +113,9 @@ export const createInitialState = (mode: GameMode, scenarioId: ScenarioId = DEFA
     soundEnabled: true,
     ambientEnabled: false,
     showTutorialHints: true
+  },
+  dev: {
+    highNoShowMode: false
   }
   });
 };
