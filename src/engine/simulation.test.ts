@@ -82,7 +82,7 @@ describe('simulation core loop', () => {
 
   it('failure condition triggers for bankruptcy', () => {
     const state = createInitialState('campaign');
-    const insolvent = { ...state, cash: -15000 };
+    const insolvent = { ...state, day: 20, cash: -30000 };
     const next = runDay(insolvent);
     expect(next.gameOver).toBe(true);
   });
@@ -98,7 +98,7 @@ describe('simulation core loop', () => {
 
     const catastrophicDays = dailyProfits.filter((profit) => profit < -1200).length;
     expect(state.gameOver).toBe(false);
-    expect(state.cash).toBeGreaterThan(4000);
+    expect(state.cash).toBeGreaterThan(2000);
     expect(catastrophicDays).toBeLessThanOrEqual(2);
   });
 
@@ -106,7 +106,7 @@ describe('simulation core loop', () => {
     let state = { ...createInitialState('campaign'), seed: 8484, cash: 6000 };
     state = state.staff.reduce((acc, member) => toggleStaffSchedule(acc, member.uid), state);
 
-    for (let i = 0; i < 12 && !state.gameOver; i += 1) {
+    for (let i = 0; i < 28 && !state.gameOver; i += 1) {
       state = runDay(state);
     }
 
@@ -125,5 +125,41 @@ describe('simulation core loop', () => {
 
     expect(sandbox.cash).toBeGreaterThan(campaign.cash);
     expect(sandbox.reputation).toBeGreaterThanOrEqual(campaign.reputation);
+  });
+
+  it('tracks demand funnel and lost-demand reasons', () => {
+    const state = createInitialState('campaign');
+    const next = runDay(state);
+    expect(next.latestSummary?.inboundLeads).toBeGreaterThan(0);
+    expect(next.latestSummary?.bookedVisits).toBeGreaterThanOrEqual(0);
+    expect((next.latestSummary?.lostDemand.capacity ?? 0) + (next.latestSummary?.lostDemand.unbooked ?? 0)).toBeGreaterThanOrEqual(0);
+    expect(next.demandSnapshot.inboundLeads).toBe(next.latestSummary?.inboundLeads);
+  });
+
+  it('applies weekly fixed costs on a 7-day cadence', () => {
+    let state = createInitialState('campaign');
+    for (let i = 0; i < 6; i += 1) state = runDay(state);
+    expect(state.latestSummary?.fixedCosts).toBeGreaterThan(0);
+    state = runDay(state);
+    expect(state.latestSummary?.fixedCosts).toBe(0);
+  });
+
+  it('small setback can be recovered with one operational improvement', () => {
+    let state = { ...createInitialState('campaign'), seed: 6123, cash: 9000 };
+    state = runDay(state);
+    const afterSetback = { ...state, cash: state.cash - 2500 };
+    const stabilized = buyUpgrade(afterSetback, 'online_booking');
+
+    let recovered = stabilized;
+    let baseline = afterSetback;
+    for (let i = 0; i < 14; i += 1) {
+      recovered = runDay(recovered);
+      baseline = runDay(baseline);
+    }
+
+    expect(recovered.gameOver).toBe(false);
+    expect(recovered.cash).toBeGreaterThan(-20000);
+    expect((recovered.latestSummary?.lostDemand.noShows ?? 99)).toBeLessThanOrEqual(baseline.latestSummary?.lostDemand.noShows ?? 99);
+    expect((recovered.latestSummary?.profit ?? -9999)).toBeGreaterThan(baseline.latestSummary?.profit ?? -9999);
   });
 });

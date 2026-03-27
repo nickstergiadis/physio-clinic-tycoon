@@ -14,6 +14,15 @@ const migrateState = (state: Partial<GameState>, fromVersion: number): Partial<G
     };
   }
 
+  if (fromVersion < 3) {
+    return {
+      ...state,
+      demandSnapshot: state.demandSnapshot ?? undefined,
+      weeklyLedger: state.weeklyLedger ?? undefined,
+      operationalModifiers: state.operationalModifiers ?? undefined
+    };
+  }
+
   return state;
 };
 
@@ -31,6 +40,32 @@ const sanitizeState = (state: GameState): GameState => {
     unlockedRooms: Array.isArray(migrated.unlockedRooms) ? migrated.unlockedRooms : base.unlockedRooms,
     unlockedServices: Array.isArray(migrated.unlockedServices) ? migrated.unlockedServices : base.unlockedServices,
     patientQueue: Array.isArray(migrated.patientQueue) ? migrated.patientQueue : base.patientQueue,
+    demandSnapshot: {
+      inboundLeads: migrated.demandSnapshot?.inboundLeads ?? base.demandSnapshot.inboundLeads,
+      bookedVisits: migrated.demandSnapshot?.bookedVisits ?? base.demandSnapshot.bookedVisits,
+      utilization: migrated.demandSnapshot?.utilization ?? base.demandSnapshot.utilization,
+      lostDemand: {
+        unbooked: migrated.demandSnapshot?.lostDemand?.unbooked ?? base.demandSnapshot.lostDemand.unbooked,
+        serviceMismatch: migrated.demandSnapshot?.lostDemand?.serviceMismatch ?? base.demandSnapshot.lostDemand.serviceMismatch,
+        capacity: migrated.demandSnapshot?.lostDemand?.capacity ?? base.demandSnapshot.lostDemand.capacity,
+        cancellations: migrated.demandSnapshot?.lostDemand?.cancellations ?? base.demandSnapshot.lostDemand.cancellations,
+        noShows: migrated.demandSnapshot?.lostDemand?.noShows ?? base.demandSnapshot.lostDemand.noShows
+      }
+    },
+    weeklyLedger: {
+      revenue: migrated.weeklyLedger?.revenue ?? base.weeklyLedger.revenue,
+      variableCosts: migrated.weeklyLedger?.variableCosts ?? base.weeklyLedger.variableCosts,
+      attendedVisits: migrated.weeklyLedger?.attendedVisits ?? base.weeklyLedger.attendedVisits,
+      noShows: migrated.weeklyLedger?.noShows ?? base.weeklyLedger.noShows
+    },
+    operationalModifiers: {
+      leadMultiplier: migrated.operationalModifiers?.leadMultiplier ?? base.operationalModifiers.leadMultiplier,
+      bookingShift: migrated.operationalModifiers?.bookingShift ?? base.operationalModifiers.bookingShift,
+      cancellationShift: migrated.operationalModifiers?.cancellationShift ?? base.operationalModifiers.cancellationShift,
+      noShowShift: migrated.operationalModifiers?.noShowShift ?? base.operationalModifiers.noShowShift,
+      variableCostShift: migrated.operationalModifiers?.variableCostShift ?? base.operationalModifiers.variableCostShift,
+      note: migrated.operationalModifiers?.note
+    },
     eventLog: Array.isArray(migrated.eventLog) ? migrated.eventLog : base.eventLog,
     settings: {
       soundEnabled: Boolean(migrated.settings?.soundEnabled ?? base.settings.soundEnabled),

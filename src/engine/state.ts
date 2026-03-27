@@ -53,6 +53,31 @@ export const createInitialState = (mode: GameMode): GameState => ({
     { id: uid(), type: 'gym', level: 1, x: 1, y: 1 }
   ],
   patientQueue: [],
+  demandSnapshot: {
+    inboundLeads: 0,
+    bookedVisits: 0,
+    utilization: 0,
+    lostDemand: {
+      unbooked: 0,
+      serviceMismatch: 0,
+      capacity: 0,
+      cancellations: 0,
+      noShows: 0
+    }
+  },
+  weeklyLedger: {
+    revenue: 0,
+    variableCosts: 0,
+    attendedVisits: 0,
+    noShows: 0
+  },
+  operationalModifiers: {
+    leadMultiplier: 1,
+    bookingShift: 0,
+    cancellationShift: 0,
+    noShowShift: 0,
+    variableCostShift: 0
+  },
   backlogDocs: 0,
   fatigueIndex: 0.2,
   latestSummary: undefined,

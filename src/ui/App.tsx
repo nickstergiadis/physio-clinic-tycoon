@@ -40,14 +40,14 @@ const summarizeUpgradeEffects = (effects: (typeof UPGRADES)[number]['effects']) 
 
 const inferFailureReasons = (state: GameState) => {
   const reasons: string[] = [];
-  if (state.cash < -5000) reasons.push('Bankruptcy: cash dropped below -$5,000.');
-  if (state.reputation < 5 && state.day > 5) reasons.push('Reputation collapse: reputation fell below 5 after day 5.');
-  if (state.fatigueIndex > 0.9 && state.day > 10) reasons.push('Burnout collapse: clinic fatigue exceeded 90% after day 10.');
+  if (state.cash < -25000 && state.day > 14) reasons.push('Bankruptcy: sustained cash deficits pushed below -$25,000 after week 2.');
+  if (state.reputation < 2 && state.day > 20) reasons.push('Reputation collapse: reputation remained critically low into week 3.');
+  if (state.fatigueIndex > 0.96 && state.day > 20) reasons.push('Burnout collapse: clinic fatigue exceeded 96% into week 3.');
   return reasons;
 };
 
 const getDayMessage = (summary: DaySummary) =>
-  `Day ${summary.day}: Profit $${summary.profit} · Treated ${summary.treated} · No-shows ${summary.noShows} · Avg outcome ${Math.round(summary.avgOutcome * 100)}%`;
+  `Day ${summary.day}: Leads ${summary.inboundLeads} → Booked ${summary.bookedVisits} → Attended ${summary.attendedVisits} · Profit $${summary.profit}`;
 
 export function App() {
   const [screen, setScreen] = useState<Screen>('menu');
@@ -253,8 +253,8 @@ export function App() {
 
   const clinicianScheduled = state.staff.some((s) => s.scheduled && (s.role === 'physio' || s.role === 'assistant' || s.role === 'specialist'));
   const emptyTiles = state.maxClinicSize - state.rooms.length;
-  const docsPenaltyEstimate = state.backlogDocs > 8 ? Math.round((state.backlogDocs - 8) * 22) : 0;
-  const lowRunway = state.cash > 0 ? Math.round(state.cash / Math.max(1, state.payrollDue + state.rent + state.equipmentCost)) : 0;
+  const docsPenaltyEstimate = state.backlogDocs > 11 ? Math.round((state.backlogDocs - 11) * 14) : 0;
+  const lowRunway = state.cash > 0 ? Math.round(state.cash / Math.max(1, state.payrollDue)) : 0;
 
   const alerts: string[] = [];
   if (!clinicianScheduled) alerts.push('No clinician is scheduled. You will treat 0 patients.');
@@ -310,7 +310,8 @@ export function App() {
               <h3>Operations Snapshot</h3>
               <p>Rooms: {state.rooms.length}/{state.maxClinicSize}</p>
               <p>Staff scheduled: {state.staff.filter((s) => s.scheduled).length}/{state.staff.length}</p>
-              <p>Patients generated today: {state.patientQueue.length}</p>
+              <p>Booked visits in pipeline: {state.patientQueue.length}</p>
+              <p>Utilization (latest day): {state.demandSnapshot.utilization.toFixed(1)}%</p>
               {!clinicianScheduled && <p className="warn">⚠ No clinician scheduled. Patients cannot be treated.</p>}
               {state.settings.showTutorialHints && state.week <= 2 && (
                 <div className="hint-box">
@@ -324,7 +325,8 @@ export function App() {
                 <div className="summary-box">
                   <h4>End-of-Day Feedback</h4>
                   <p>Revenue ${state.latestSummary.revenue} · Expenses ${state.latestSummary.expenses} · Profit ${state.latestSummary.profit}</p>
-                  <p>Treated {state.latestSummary.treated} · No-shows {state.latestSummary.noShows} · Outcome {Math.round(state.latestSummary.avgOutcome * 100)}%</p>
+                  <p>Leads {state.latestSummary.inboundLeads} → Booked {state.latestSummary.bookedVisits} → Attended {state.latestSummary.attendedVisits} ({state.latestSummary.utilization.toFixed(1)}% utilization)</p>
+                  <p>Lost: unbooked {state.latestSummary.lostDemand.unbooked}, capacity {state.latestSummary.lostDemand.capacity}, cancellations {state.latestSummary.lostDemand.cancellations}, no-shows {state.latestSummary.lostDemand.noShows}</p>
                   {state.latestSummary.notes.length > 0 && (
                     <ul>
                       {state.latestSummary.notes.map((note) => <li key={note}>{note}</li>)}
@@ -459,10 +461,12 @@ export function App() {
         {state.selectedTab === 'patients' && (
           <section className="card">
             <h3>Caseload & Demand Quality</h3>
-            <p>Generated queue today: {state.patientQueue.length}</p>
+            <p>Current booked queue: {state.patientQueue.length}</p>
             {state.patientQueue.length === 0 && <p>No patient queue yet. Run a day to generate demand.</p>}
             {state.patientQueue.length > 0 && (
               <div className="summary-box">
+                <p>Daily funnel: leads {state.demandSnapshot.inboundLeads} · booked {state.demandSnapshot.bookedVisits} · utilization {state.demandSnapshot.utilization.toFixed(1)}%</p>
+                <p>Lost demand: unbooked {state.demandSnapshot.lostDemand.unbooked}, service mismatch {state.demandSnapshot.lostDemand.serviceMismatch}, capacity {state.demandSnapshot.lostDemand.capacity}</p>
                 <p>Insured mix: {state.patientQueue.filter((p) => p.insured).length}/{state.patientQueue.length}</p>
                 <p>High complexity cases: {state.patientQueue.filter((p) => p.complexity > 0.75).length}</p>
                 <p>If no-shows are high, prioritize online booking. If outcomes are low, hire specialist or certification upgrades.</p>
@@ -485,12 +489,16 @@ export function App() {
             <article className="card">
               <h3>Finance</h3>
               <p>Cash: ${Math.round(state.cash)}</p>
-              <p>Rent/day: ${state.rent}</p>
-              <p>Equipment/day: ${state.equipmentCost}</p>
-              <p>Payroll/day: ${state.payrollDue}</p>
-              <p>Docs penalty estimate today: ${docsPenaltyEstimate}</p>
-              <p>Estimated runway: {lowRunway} days</p>
-              {state.latestSummary && <p>Latest daily P/L: ${state.latestSummary.profit}</p>}
+              <p>Weekly fixed costs due: ${Math.round(state.payrollDue)}</p>
+              <p>Rent/day: ${state.rent} · Equipment/day: ${state.equipmentCost}</p>
+              <p>Docs penalty estimate today: ${docsPenaltyEstimate} (variable cost)</p>
+              <p>Runway vs fixed liabilities: {lowRunway} week(s)</p>
+              {state.latestSummary && (
+                <>
+                  <p>Latest P/L: Revenue ${state.latestSummary.revenue} - Variable ${state.latestSummary.variableCosts} - Fixed ${state.latestSummary.fixedCosts} = ${state.latestSummary.profit}</p>
+                  <p>Next weekly charge in {state.latestSummary.daysUntilWeeklyCosts} day(s): ${state.latestSummary.weeklyCostsDueNext}</p>
+                </>
+              )}
             </article>
             <article className="card">
               <h3>Risk Flags</h3>
