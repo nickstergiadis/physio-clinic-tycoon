@@ -135,8 +135,8 @@ export const STAFF_TEMPLATES: StaffTemplate[] = [
   {
     id: 'physio',
     name: 'Physiotherapist',
-    baseWage: 420,
-    hireCost: 2600,
+    baseWage: 390,
+    hireCost: 2200,
     speed: 0.7,
     quality: 0.78,
     documentation: 0.62,
@@ -147,8 +147,8 @@ export const STAFF_TEMPLATES: StaffTemplate[] = [
   {
     id: 'assistant',
     name: 'Rehab Assistant',
-    baseWage: 220,
-    hireCost: 1500,
+    baseWage: 205,
+    hireCost: 1250,
     speed: 0.75,
     quality: 0.52,
     documentation: 0.5,
@@ -159,8 +159,8 @@ export const STAFF_TEMPLATES: StaffTemplate[] = [
   {
     id: 'frontDesk',
     name: 'Front Desk Admin',
-    baseWage: 180,
-    hireCost: 1200,
+    baseWage: 170,
+    hireCost: 1000,
     speed: 0.7,
     quality: 0.45,
     documentation: 0.9,
@@ -171,8 +171,8 @@ export const STAFF_TEMPLATES: StaffTemplate[] = [
   {
     id: 'specialist',
     name: 'Specialist Contractor',
-    baseWage: 600,
-    hireCost: 4200,
+    baseWage: 560,
+    hireCost: 3600,
     speed: 0.68,
     quality: 0.92,
     documentation: 0.75,
@@ -183,15 +183,15 @@ export const STAFF_TEMPLATES: StaffTemplate[] = [
 ];
 
 export const ROOM_DEFS: RoomDefinition[] = [
-  { id: 'reception', name: 'Reception', cost: 1800, maintenance: 55, throughputBonus: 0.09, satisfactionBonus: 0.04 },
-  { id: 'waiting', name: 'Waiting Area', cost: 900, maintenance: 25, throughputBonus: 0.05, satisfactionBonus: 0.08 },
-  { id: 'treatment', name: 'Treatment Room', cost: 2400, maintenance: 80, throughputBonus: 0.16, satisfactionBonus: 0.05 },
-  { id: 'gym', name: 'Rehab Gym', cost: 3000, maintenance: 95, throughputBonus: 0.18, satisfactionBonus: 0.07 },
+  { id: 'reception', name: 'Reception', cost: 1600, maintenance: 45, throughputBonus: 0.09, satisfactionBonus: 0.04 },
+  { id: 'waiting', name: 'Waiting Area', cost: 780, maintenance: 20, throughputBonus: 0.05, satisfactionBonus: 0.08 },
+  { id: 'treatment', name: 'Treatment Room', cost: 2050, maintenance: 62, throughputBonus: 0.16, satisfactionBonus: 0.05 },
+  { id: 'gym', name: 'Rehab Gym', cost: 2550, maintenance: 75, throughputBonus: 0.18, satisfactionBonus: 0.07 },
   {
     id: 'vestibularLab',
     name: 'Vestibular Lab',
-    cost: 5200,
-    maintenance: 130,
+    cost: 4600,
+    maintenance: 108,
     throughputBonus: 0.11,
     satisfactionBonus: 0.1,
     requiredUpgrade: 'vestibular_suite'
@@ -199,8 +199,8 @@ export const ROOM_DEFS: RoomDefinition[] = [
   {
     id: 'hydro',
     name: 'Hydro Therapy Room',
-    cost: 6800,
-    maintenance: 160,
+    cost: 6100,
+    maintenance: 136,
     throughputBonus: 0.12,
     satisfactionBonus: 0.12,
     requiredUpgrade: 'hydro_program'
@@ -208,26 +208,26 @@ export const ROOM_DEFS: RoomDefinition[] = [
 ];
 
 export const SERVICES: ServiceDefinition[] = [
-  { id: 'initialAssessment', name: 'Initial Assessment', duration: 45, baseRevenue: 210, qualityImpact: 0.1, fatigueImpact: 0.09, adminLoad: 1.2, requiredRoom: 'treatment' },
-  { id: 'followUp', name: 'Follow-up Session', duration: 30, baseRevenue: 120, qualityImpact: 0.06, fatigueImpact: 0.06, adminLoad: 0.8, requiredRoom: 'treatment' },
-  { id: 'exerciseSession', name: 'Exercise Session', duration: 35, baseRevenue: 130, qualityImpact: 0.07, fatigueImpact: 0.07, adminLoad: 0.6, requiredRoom: 'gym' },
-  { id: 'groupClass', name: 'Group Class', duration: 50, baseRevenue: 320, qualityImpact: 0.05, fatigueImpact: 0.05, adminLoad: 1.4, requiredRoom: 'gym' },
-  { id: 'returnToSport', name: 'Return-to-Sport Package', duration: 55, baseRevenue: 290, qualityImpact: 0.14, fatigueImpact: 0.11, adminLoad: 1.2, requiredRoom: 'gym' },
-  { id: 'vestibularProgram', name: 'Vestibular Program', duration: 40, baseRevenue: 260, qualityImpact: 0.13, fatigueImpact: 0.1, adminLoad: 1.1, requiredRoom: 'vestibularLab' },
-  { id: 'postOpPathway', name: 'Post-op Pathway', duration: 50, baseRevenue: 275, qualityImpact: 0.12, fatigueImpact: 0.1, adminLoad: 1.4, requiredRoom: 'treatment' },
-  { id: 'chronicPainProgram', name: 'Chronic Pain Program', duration: 45, baseRevenue: 235, qualityImpact: 0.11, fatigueImpact: 0.08, adminLoad: 1.5, requiredRoom: 'gym' },
-  { id: 'premiumAssessment', name: 'Premium Assessment', duration: 70, baseRevenue: 390, qualityImpact: 0.16, fatigueImpact: 0.13, adminLoad: 1.7, requiredRoom: 'treatment' }
+  { id: 'initialAssessment', name: 'Initial Assessment', duration: 45, baseRevenue: 225, qualityImpact: 0.1, fatigueImpact: 0.08, adminLoad: 1.05, requiredRoom: 'treatment' },
+  { id: 'followUp', name: 'Follow-up Session', duration: 30, baseRevenue: 132, qualityImpact: 0.06, fatigueImpact: 0.055, adminLoad: 0.72, requiredRoom: 'treatment' },
+  { id: 'exerciseSession', name: 'Exercise Session', duration: 35, baseRevenue: 144, qualityImpact: 0.07, fatigueImpact: 0.06, adminLoad: 0.55, requiredRoom: 'gym' },
+  { id: 'groupClass', name: 'Group Class', duration: 50, baseRevenue: 338, qualityImpact: 0.05, fatigueImpact: 0.045, adminLoad: 1.2, requiredRoom: 'gym' },
+  { id: 'returnToSport', name: 'Return-to-Sport Package', duration: 55, baseRevenue: 306, qualityImpact: 0.14, fatigueImpact: 0.095, adminLoad: 1.05, requiredRoom: 'gym' },
+  { id: 'vestibularProgram', name: 'Vestibular Program', duration: 40, baseRevenue: 280, qualityImpact: 0.13, fatigueImpact: 0.09, adminLoad: 0.98, requiredRoom: 'vestibularLab' },
+  { id: 'postOpPathway', name: 'Post-op Pathway', duration: 50, baseRevenue: 295, qualityImpact: 0.12, fatigueImpact: 0.09, adminLoad: 1.2, requiredRoom: 'treatment' },
+  { id: 'chronicPainProgram', name: 'Chronic Pain Program', duration: 45, baseRevenue: 252, qualityImpact: 0.11, fatigueImpact: 0.072, adminLoad: 1.28, requiredRoom: 'gym' },
+  { id: 'premiumAssessment', name: 'Premium Assessment', duration: 70, baseRevenue: 410, qualityImpact: 0.16, fatigueImpact: 0.115, adminLoad: 1.45, requiredRoom: 'treatment' }
 ];
 
 export const UPGRADES: UpgradeDefinition[] = [
-  { id: 'ehr_automation', name: 'EHR Automation', cost: 3200, description: 'Reduce admin burden and documentation delays.', effects: { adminReduction: 0.18 } },
-  { id: 'online_booking', name: 'Online Booking Portal', cost: 2500, description: 'Reduce no-shows and improve referrals.', effects: { noShowReduction: 0.12, referralMult: 0.08 } },
-  { id: 'community_marketing', name: 'Community Sports Marketing', cost: 3600, description: 'Improve referral pipeline and brand awareness.', effects: { referralMult: 0.16 } },
-  { id: 'staff_wellness', name: 'Staff Wellness Program', cost: 2900, description: 'Boost morale and burnout resilience.', effects: { moraleGain: 10 } },
-  { id: 'premium_branding', name: 'Premium Clinic Branding', cost: 4200, description: 'Increase pricing power and perceived quality.', effects: { premiumPricing: 0.12, qualityBonus: 0.05 } },
-  { id: 'clinic_expansion_i', name: 'Lease Expansion I', cost: 5000, description: 'Increase layout capacity.', effects: { maxClinicSize: 8 } },
-  { id: 'clinic_expansion_ii', name: 'Lease Expansion II', cost: 9600, description: 'Increase layout capacity further.', effects: { maxClinicSize: 12 } },
-  { id: 'vestibular_suite', name: 'Vestibular Suite Certification', cost: 6400, description: 'Unlock vestibular lab and services.', effects: { unlockRooms: ['vestibularLab'], unlockServices: ['vestibularProgram'] } },
-  { id: 'hydro_program', name: 'Hydro Therapy Program', cost: 8200, description: 'Unlock hydro room and specialty service access.', effects: { unlockRooms: ['hydro'], qualityBonus: 0.08 } },
-  { id: 'advanced_certification', name: 'Advanced Clinical Certification', cost: 7000, description: 'Boost quality outcomes in complex cohorts.', effects: { qualityBonus: 0.1 } }
+  { id: 'ehr_automation', name: 'EHR Automation', cost: 2800, description: 'Reduce admin burden and documentation delays.', effects: { adminReduction: 0.18 } },
+  { id: 'online_booking', name: 'Online Booking Portal', cost: 2200, description: 'Reduce no-shows and improve referrals.', effects: { noShowReduction: 0.12, referralMult: 0.08 } },
+  { id: 'community_marketing', name: 'Community Sports Marketing', cost: 3200, description: 'Improve referral pipeline and brand awareness.', effects: { referralMult: 0.16 } },
+  { id: 'staff_wellness', name: 'Staff Wellness Program', cost: 2550, description: 'Boost morale and burnout resilience.', effects: { moraleGain: 10 } },
+  { id: 'premium_branding', name: 'Premium Clinic Branding', cost: 3800, description: 'Increase pricing power and perceived quality.', effects: { premiumPricing: 0.12, qualityBonus: 0.05 } },
+  { id: 'clinic_expansion_i', name: 'Lease Expansion I', cost: 4500, description: 'Increase layout capacity.', effects: { maxClinicSize: 8 } },
+  { id: 'clinic_expansion_ii', name: 'Lease Expansion II', cost: 8600, description: 'Increase layout capacity further.', effects: { maxClinicSize: 12 } },
+  { id: 'vestibular_suite', name: 'Vestibular Suite Certification', cost: 5700, description: 'Unlock vestibular lab and services.', effects: { unlockRooms: ['vestibularLab'], unlockServices: ['vestibularProgram'] } },
+  { id: 'hydro_program', name: 'Hydro Therapy Program', cost: 7400, description: 'Unlock hydro room and specialty service access.', effects: { unlockRooms: ['hydro'], qualityBonus: 0.08 } },
+  { id: 'advanced_certification', name: 'Advanced Clinical Certification', cost: 6400, description: 'Boost quality outcomes in complex cohorts.', effects: { qualityBonus: 0.1 } }
 ];

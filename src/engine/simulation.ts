@@ -15,21 +15,21 @@ const sumEffect = (state: GameState, selector: (effects: (typeof UPGRADES)[numbe
   unlockedUpgradeEffects(state).reduce((sum, e) => sum + (selector(e) ?? 0), 0);
 
 const EVENT_CARDS: EventCard[] = [
-  { id: 'mva_batch', name: 'MVA Referral Batch', description: 'Insurer-heavy referrals arrived.', chance: 0.08, apply: (s) => ({ ...s, referrals: s.referrals + 4, backlogDocs: s.backlogDocs + 2, eventLog: [`${s.day}: MVA referrals increased admin load.`, ...s.eventLog].slice(0, 12) }) },
-  { id: 'flu_wave', name: 'Seasonal Flu Wave', description: 'More no-shows this day.', chance: 0.08, apply: (s) => ({ ...s, eventLog: [`${s.day}: Seasonal illness increased no-show risk.`, ...s.eventLog].slice(0, 12), reputation: clamp(s.reputation - 1, 0, 100) }) },
+  { id: 'mva_batch', name: 'MVA Referral Batch', description: 'Insurer-heavy referrals arrived.', chance: 0.07, apply: (s) => ({ ...s, referrals: s.referrals + 3, backlogDocs: s.backlogDocs + 1, eventLog: [`${s.day}: MVA referrals increased admin load.`, ...s.eventLog].slice(0, 12) }) },
+  { id: 'flu_wave', name: 'Seasonal Flu Wave', description: 'More no-shows this day.', chance: 0.06, apply: (s) => ({ ...s, eventLog: [`${s.day}: Seasonal illness increased no-show risk.`, ...s.eventLog].slice(0, 12), reputation: clamp(s.reputation - 0.5, 0, 100) }) },
   { id: 'sports_tournament', name: 'Local Sports Tournament', description: 'Higher athlete demand.', chance: 0.06, apply: (s) => ({ ...s, referrals: s.referrals + 3, reputation: clamp(s.reputation + 1, 0, 100), eventLog: [`${s.day}: Athlete referrals surged.`, ...s.eventLog].slice(0, 12) }) },
-  { id: 'ehr_outage', name: 'EHR Outage', description: 'Documentation is delayed.', chance: 0.05, apply: (s) => ({ ...s, backlogDocs: s.backlogDocs + 5, eventLog: [`${s.day}: EHR outage caused a backlog.`, ...s.eventLog].slice(0, 12) }) },
-  { id: 'staff_conflict', name: 'Staff Conflict', description: 'Morale drop for the team.', chance: 0.05, apply: (s) => ({ ...s, staff: s.staff.map((m) => ({ ...m, morale: clamp(m.morale - 5, 0, 100) })), eventLog: [`${s.day}: Team morale dipped after conflict.`, ...s.eventLog].slice(0, 12) }) },
-  { id: 'equipment_break', name: 'Equipment Breakdown', description: 'Maintenance costs increase.', chance: 0.07, apply: (s) => ({ ...s, equipmentCost: s.equipmentCost + 50, eventLog: [`${s.day}: Equipment breakdown increased costs.`, ...s.eventLog].slice(0, 12) }) },
+  { id: 'ehr_outage', name: 'EHR Outage', description: 'Documentation is delayed.', chance: 0.035, apply: (s) => ({ ...s, backlogDocs: s.backlogDocs + 3, eventLog: [`${s.day}: EHR outage caused a backlog.`, ...s.eventLog].slice(0, 12) }) },
+  { id: 'staff_conflict', name: 'Staff Conflict', description: 'Morale drop for the team.', chance: 0.04, apply: (s) => ({ ...s, staff: s.staff.map((m) => ({ ...m, morale: clamp(m.morale - 3, 0, 100) })), eventLog: [`${s.day}: Team morale dipped after conflict.`, ...s.eventLog].slice(0, 12) }) },
+  { id: 'equipment_break', name: 'Equipment Breakdown', description: 'Maintenance costs increase.', chance: 0.05, apply: (s) => ({ ...s, equipmentCost: s.equipmentCost + 30, eventLog: [`${s.day}: Equipment breakdown increased costs.`, ...s.eventLog].slice(0, 12) }) },
   { id: 'positive_reviews', name: 'Positive Review Streak', description: 'Boost in referrals and reputation.', chance: 0.09, apply: (s) => ({ ...s, referrals: s.referrals + 2, reputation: clamp(s.reputation + 3, 0, 100), eventLog: [`${s.day}: Great reviews boosted reputation.`, ...s.eventLog].slice(0, 12) }) },
-  { id: 'insurer_audit', name: 'Insurer Audit', description: 'Administrative pressure rises.', chance: 0.04, apply: (s) => ({ ...s, backlogDocs: s.backlogDocs + 6, cash: s.cash - 300, eventLog: [`${s.day}: Insurer audit consumed admin time.`, ...s.eventLog].slice(0, 12) }) },
-  { id: 'community_fair', name: 'Community Health Fair', description: 'New leads and branding.', chance: 0.08, apply: (s) => ({ ...s, referrals: s.referrals + 3, reputation: clamp(s.reputation + 2, 0, 100), cash: s.cash - 250, eventLog: [`${s.day}: Health fair generated new leads.`, ...s.eventLog].slice(0, 12) }) },
+  { id: 'insurer_audit', name: 'Insurer Audit', description: 'Administrative pressure rises.', chance: 0.03, apply: (s) => ({ ...s, backlogDocs: s.backlogDocs + 4, cash: s.cash - 180, eventLog: [`${s.day}: Insurer audit consumed admin time.`, ...s.eventLog].slice(0, 12) }) },
+  { id: 'community_fair', name: 'Community Health Fair', description: 'New leads and branding.', chance: 0.08, apply: (s) => ({ ...s, referrals: s.referrals + 3, reputation: clamp(s.reputation + 2, 0, 100), cash: s.cash - 180, eventLog: [`${s.day}: Health fair generated new leads.`, ...s.eventLog].slice(0, 12) }) },
   { id: 'staff_training_day', name: 'Staff Training Day', description: 'Quality up, capacity down briefly.', chance: 0.07, apply: (s) => ({ ...s, staff: s.staff.map((m) => ({ ...m, quality: clamp(m.quality + 0.01, 0, 1), fatigue: clamp(m.fatigue + 3, 0, 100) })), eventLog: [`${s.day}: Training improved care quality.`, ...s.eventLog].slice(0, 12) }) },
-  { id: 'rent_review', name: 'Rent Review', description: 'Rent increases slightly.', chance: 0.04, apply: (s) => ({ ...s, rent: s.rent + 30, eventLog: [`${s.day}: Rent increased after review.`, ...s.eventLog].slice(0, 12) }) }
+  { id: 'rent_review', name: 'Rent Review', description: 'Rent increases slightly.', chance: 0.03, apply: (s) => ({ ...s, rent: s.rent + 20, eventLog: [`${s.day}: Rent increased after review.`, ...s.eventLog].slice(0, 12) }) }
 ];
 
 export const generatePatients = (state: GameState): PatientVisit[] => {
-  const baseDemand = Math.max(4, Math.round(state.referrals * 0.75 + state.reputation * 0.09));
+  const baseDemand = Math.max(5, Math.round(state.referrals * 0.8 + state.reputation * 0.1));
   const demandMult = 1 + sumEffect(state, (e) => e.referralMult);
   const demand = Math.min(40, Math.round(baseDemand * demandMult));
   const queue: PatientVisit[] = [];
@@ -53,7 +53,7 @@ export const generatePatients = (state: GameState): PatientVisit[] => {
 
 const treatmentCapacity = (state: GameState): number => {
   const activeStaff = state.staff.filter((s) => s.scheduled);
-  const staffCapacity = activeStaff.reduce((sum, s) => sum + 5 * s.speed * (1 - s.fatigue / 180), 0);
+  const staffCapacity = activeStaff.reduce((sum, s) => sum + 5.4 * s.speed * (1 - s.fatigue / 200), 0);
   const roomBonus = state.rooms.reduce((sum, r) => {
     const def = ROOM_DEFS.find((d) => d.id === r.type);
     return sum + (def?.throughputBonus ?? 0) * 6;
@@ -108,7 +108,7 @@ export const runDay = (state: GameState): GameState => {
 
     const staff = staffPool[i % staffPool.length];
 
-    const noShowChance = clamp(archetype.noShowChance - noShowReduction, 0.02, 0.5);
+    const noShowChance = clamp(archetype.noShowChance - (0.015 + noShowReduction), 0.02, 0.45);
     if (rand(next.seed + next.day * 31 + i) < noShowChance) {
       noShows += 1;
       continue;
@@ -130,7 +130,7 @@ export const runDay = (state: GameState): GameState => {
     totalWait += wait;
     outcomes.push(outcome);
 
-    const fatigueGain = service.fatigueImpact * 20 * (1 - staff.fatigueResistance * 0.5);
+    const fatigueGain = service.fatigueImpact * 16 * (1 - staff.fatigueResistance * 0.45);
     staff.fatigue = clamp(staff.fatigue + fatigueGain, 0, 100);
     staff.morale = clamp(staff.morale + (satisfaction - 0.6) * 5 + moraleGain * 0.05, 0, 100);
   }
@@ -141,18 +141,18 @@ export const runDay = (state: GameState): GameState => {
 
   const payroll = next.staff.reduce((sum, s) => sum + s.wage, 0);
   const roomMaintenance = next.rooms.reduce((sum, r) => sum + (ROOM_DEFS.find((d) => d.id === r.type)?.maintenance ?? 0), 0);
-  const docs = Math.max(0, next.backlogDocs + adminLoad * (1 - adminReduction) - next.staff.reduce((sum, s) => sum + s.documentation, 0) * 2.4);
-  const docsPenalty = docs > 8 ? (docs - 8) * 22 : 0;
+  const docs = Math.max(0, next.backlogDocs + adminLoad * (1 - adminReduction * 1.1) - next.staff.reduce((sum, s) => sum + s.documentation, 0) * 2.8);
+  const docsPenalty = docs > 11 ? (docs - 11) * 14 : 0;
 
   const expenses = payroll + next.rent + next.equipmentCost + roomMaintenance + docsPenalty;
   const profit = revenue - expenses;
 
-  const reputationDelta = clamp((avgOutcome - 0.45) * 10 - avgWait * 0.04 - noShows * 0.08 - docs * 0.05, -5, 6);
-  const referralsDelta = Math.round(clamp(reputationDelta * 0.8 + treated * 0.02, -2, 5));
+  const reputationDelta = clamp((avgOutcome - 0.44) * 9 - avgWait * 0.03 - noShows * 0.06 - docs * 0.035, -4, 5);
+  const referralsDelta = Math.round(clamp(reputationDelta * 0.75 + treated * 0.03 + 0.4, -2, 5));
 
   const fatigueIndex = clamp(average(next.staff.map((s) => s.fatigue)) / 100, 0, 1);
 
-  next.staff = next.staff.map((s) => ({ ...s, fatigue: clamp(s.fatigue - 8 + (1 - s.fatigueResistance) * 2, 0, 100) }));
+  next.staff = next.staff.map((s) => ({ ...s, fatigue: clamp(s.fatigue - 10 + (1 - s.fatigueResistance) * 1.8, 0, 100) }));
   next.cash += profit;
   next.payrollDue = payroll;
   next.backlogDocs = docs;
@@ -190,9 +190,9 @@ export const runDay = (state: GameState): GameState => {
     ...next.eventLog
   ].slice(0, 12);
 
-  const bankruptcy = next.cash < -5000;
-  const reputationCollapse = next.reputation < 5 && next.day > 5;
-  const burnoutCollapse = next.fatigueIndex > 0.9 && next.day > 10;
+  const bankruptcy = next.cash < -10000;
+  const reputationCollapse = next.reputation < 3 && next.day > 10;
+  const burnoutCollapse = next.fatigueIndex > 0.94 && next.day > 14;
 
   next.gameOver = bankruptcy || reputationCollapse || burnoutCollapse;
   next.gameWon =
