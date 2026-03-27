@@ -65,9 +65,16 @@ describe('simulation core loop', () => {
     const state = createInitialState('campaign');
     const boosted = {
       ...state,
-      week: state.campaignGoal.targetWeek,
-      reputation: state.campaignGoal.targetReputation,
-      cash: state.campaignGoal.targetCash
+      day: 6,
+      week: state.campaignGoal.targetWeek - 1,
+      reputation: 100,
+      cash: 1_000_000,
+      campaignGoal: {
+        ...state.campaignGoal,
+        targetWeek: state.campaignGoal.targetWeek,
+        targetReputation: 90,
+        targetCash: 900_000
+      }
     };
     const next = runDay(boosted);
     expect(next.gameWon).toBe(true);
