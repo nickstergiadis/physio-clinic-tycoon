@@ -2,6 +2,7 @@ export type GameMode = 'campaign' | 'sandbox';
 export type Screen = 'menu' | 'newGame' | 'loadGame' | 'tutorial' | 'settings' | 'inGame';
 export type GameSpeed = 0 | 1 | 2 | 3;
 export type DifficultyPresetId = 'relaxed' | 'standard' | 'hardcore';
+export type ScenarioId = 'community_rebuild' | 'sports_performance' | 'insurance_crunch';
 
 export type PatientArchetypeId =
   | 'athlete'
@@ -139,6 +140,69 @@ export interface DifficultyPreset {
   demandMultiplier: number;
   revenueMultiplier: number;
   expenseMultiplier: number;
+  noShowShift: number;
+  cancellationShift: number;
+  reputationDecay: number;
+  loanInterestMultiplier: number;
+}
+
+export type ObjectiveMetric =
+  | 'cash'
+  | 'reputation'
+  | 'districtTier'
+  | 'attendedVisits'
+  | 'avgOutcome'
+  | 'serviceDiversity'
+  | 'loanCleared';
+
+export interface ScenarioObjective {
+  id: string;
+  label: string;
+  metric: ObjectiveMetric;
+  target: number;
+  deadlineWeek: number;
+  optional?: boolean;
+}
+
+export interface ScenarioDefinition {
+  id: ScenarioId;
+  name: string;
+  description: string;
+  startCash: number;
+  startReputation: number;
+  startReferrals: number;
+  rent: number;
+  equipmentCost: number;
+  startingLoanOffer: number;
+  demandMixBias: Partial<Record<PatientArchetypeId, number>>;
+  objectives: ScenarioObjective[];
+  failure: {
+    maxDebt: number;
+    minReputation: number;
+    stressWeek: number;
+  };
+}
+
+export interface ObjectiveProgress {
+  objectiveId: string;
+  completed: boolean;
+  completedWeek?: number;
+}
+
+export interface LoanState {
+  principal: number;
+  interestRate: number;
+  termWeeks: number;
+  weeksRemaining: number;
+  weeklyPayment: number;
+}
+
+export interface ReputationTier {
+  id: 'local' | 'district' | 'city';
+  threshold: number;
+  grant: number;
+  unlockServices: ServiceId[];
+  unlockUpgrades: string[];
 }
 
 export interface SimulationBalance {
@@ -246,7 +310,7 @@ export interface GameState {
   version: number;
   seed: number;
   mode: GameMode;
-  scenarioId: string;
+  scenarioId: ScenarioId;
   difficultyPreset: DifficultyPresetId;
   day: number;
   week: number;
@@ -298,6 +362,14 @@ export interface GameState {
     targetWeek: number;
     targetReputation: number;
     targetCash: number;
+  };
+  objectiveProgress: ObjectiveProgress[];
+  districtTier: number;
+  unlockedTierRewards: string[];
+  loan: LoanState | null;
+  lifetimeStats: {
+    attendedVisits: number;
+    avgOutcomeRolling: number;
   };
   settings: SettingsState;
 }

@@ -3,10 +3,25 @@ import { DaySummary, GameState, PatientArchetype, PatientVisit, RoomTypeId, Serv
 import { average, clamp, rand, uid } from './utils';
 import { applyRandomEvent } from './events';
 import { BALANCE, getDifficultyPreset, sumUpgradeEffect } from './simulationConfig';
+import { applyReputationTiers, evaluateObjectives, getScenario, isScenarioFailed, isScenarioWon } from './campaign';
 
 const getArchetype = (id: string): PatientArchetype => PATIENT_ARCHETYPES.find((p) => p.id === id) ?? PATIENT_ARCHETYPES[0];
 const getService = (id: ServiceId) => SERVICES.find((s) => s.id === id) ?? SERVICES[0];
 const randomArchetype = (seed: number): PatientArchetype => PATIENT_ARCHETYPES[Math.floor(rand(seed) * PATIENT_ARCHETYPES.length)];
+const weightedArchetype = (seed: number, state: GameState): PatientArchetype => {
+  const scenario = getScenario(state.scenarioId);
+  const withWeight = PATIENT_ARCHETYPES.map((archetype) => ({
+    archetype,
+    weight: 1 + (scenario.demandMixBias[archetype.id] ?? 0)
+  }));
+  const total = withWeight.reduce((sum, item) => sum + item.weight, 0);
+  let roll = rand(seed) * total;
+  for (const item of withWeight) {
+    roll -= item.weight;
+    if (roll <= 0) return item.archetype;
+  }
+  return randomArchetype(seed);
+};
 const hasRoom = (state: GameState, roomType: RoomTypeId): boolean => state.rooms.some((room) => room.type === roomType);
 const shiftCapacityFactor = (shift: StaffMember['shift']): number => (shift === 'full' ? 1 : shift === 'half' ? 0.62 : 0);
 
@@ -46,7 +61,7 @@ const buildDailyDemand = (state: GameState): DemandBuild => {
       continue;
     }
 
-    const archetype = randomArchetype(seed);
+    const archetype = weightedArchetype(seed, state);
     const servicePool = archetype.preferredServices.filter((serviceId) => state.unlockedServices.includes(serviceId));
     const service = servicePool[Math.floor(rand(seed + 3) * servicePool.length)];
 
@@ -162,13 +177,17 @@ const resolveVisits = (state: GameState, queue: PatientVisit[], capacity: number
       continue;
     }
     const staff = [...eligibleStaff].sort((a, b) => staffServiceFit(b, archetype, service.id, service.requiredRoom) - staffServiceFit(a, archetype, service.id, service.requiredRoom))[0];
-    const cancellationChance = clamp(0.04 + archetype.complexity * 0.08 + modifier.cancellationShift, 0.01, 0.35);
+    const cancellationChance = clamp(0.04 + archetype.complexity * 0.08 + modifier.cancellationShift + preset.cancellationShift, 0.01, 0.35);
     if (rand(state.seed + state.day * 41 + i) < cancellationChance) {
       cancellations += 1;
       continue;
     }
 
-    const noShowChance = clamp(archetype.noShowChance - (BALANCE.baseNoShowBuffer + noShowReduction) + modifier.noShowShift, BALANCE.minNoShowChance, BALANCE.maxNoShowChance);
+    const noShowChance = clamp(
+      archetype.noShowChance - (BALANCE.baseNoShowBuffer + noShowReduction) + modifier.noShowShift + preset.noShowShift,
+      BALANCE.minNoShowChance,
+      BALANCE.maxNoShowChance
+    );
     if (rand(state.seed + state.day * 31 + i) < noShowChance) {
       noShows += 1;
       continue;
@@ -234,6 +253,7 @@ export const runDay = (state: GameState): GameState => {
   const docsPenalty = docs > BALANCE.docsPenaltyThreshold ? (docs - BALANCE.docsPenaltyThreshold) * BALANCE.docsPenaltyUnit : 0;
   const variableCosts = visits.variableCosts + docsPenalty;
   const weeklyFixedCosts = totalWeeklyFixedCosts(next);
+  const notes: string[] = [];
 
   const dayOfWeek = ((next.day - 1) % 7) + 1;
   const weeklyCostsApplied = dayOfWeek === 7 ? weeklyFixedCosts : 0;
@@ -254,7 +274,7 @@ export const runDay = (state: GameState): GameState => {
     (avgOutcome - 0.46) * 8 + utilization * 1.4 - avgWait * 0.025 - visits.noShows * 0.045 - visits.cancellations * 0.04 - docs * 0.025,
     -3,
     4
-  );
+  ) - preset.reputationDecay;
   const referralsDelta = Math.round(clamp(reputationDelta * 0.55 + visits.attended * 0.045 - visits.capacityLost * 0.025 + 0.35, -2, 5));
   const fatigueIndex = clamp(average(next.staff.map((staffMember) => staffMember.fatigue)) / 100, 0, 1);
 
@@ -286,10 +306,31 @@ export const runDay = (state: GameState): GameState => {
   next.referrals = Math.max(0, next.referrals + referralsDelta);
   next.patientQueue = demand.booked;
   next.weeklyLedger = updatedLedger;
+  next.lifetimeStats = {
+    attendedVisits: next.lifetimeStats.attendedVisits + visits.attended,
+    avgOutcomeRolling:
+      next.lifetimeStats.attendedVisits + visits.attended > 0
+        ? (next.lifetimeStats.avgOutcomeRolling * next.lifetimeStats.attendedVisits + avgOutcome * visits.attended) /
+          (next.lifetimeStats.attendedVisits + visits.attended)
+        : next.lifetimeStats.avgOutcomeRolling
+  };
 
   if (next.day % 7 === 0) next.week += 1;
 
-  const notes: string[] = [];
+  if (dayOfWeek === 7 && next.loan) {
+    const scheduledPayment = next.loan.weeklyPayment;
+    const interestDue = next.loan.principal * next.loan.interestRate;
+    const payment = Math.min(next.cash + Math.max(0, next.loan.principal), scheduledPayment);
+    next.cash -= payment;
+    const principalPaid = Math.max(0, payment - interestDue);
+    const principalRemaining = Math.max(0, next.loan.principal - principalPaid);
+    next.loan = principalRemaining <= 0 || next.loan.weeksRemaining <= 1 ? null : { ...next.loan, principal: principalRemaining, weeksRemaining: next.loan.weeksRemaining - 1 };
+    notes.push(`Loan payment processed: $${Math.round(payment)} (${Math.round(principalPaid)} principal).`);
+    if (payment < scheduledPayment) {
+      next.reputation = clamp(next.reputation - 1.2, 0, 100);
+      notes.push('Underpaid financing installment harmed lender confidence.');
+    }
+  }
   const hasScheduledStaff = next.staff.some((staffMember) => staffMember.scheduled);
   if (visits.capacityLost > 0) notes.push('Demand exceeded daily capacity. Add clinicians or rooms to capture growth.');
   if (visits.staffingBottlenecks > 0) notes.push(`Staffing bottleneck hit ${visits.staffingBottlenecks} visits. Reassign staff or add training coverage.`);
@@ -348,16 +389,20 @@ export const runDay = (state: GameState): GameState => {
     ...next.eventLog
   ].slice(0, 12);
 
-  const bankruptcy = next.cash < -25000 && next.day > 14;
+  const scenario = getScenario(next.scenarioId);
+  const bankruptcy = next.cash < scenario.failure.maxDebt && next.day > 14;
   const reputationCollapse = next.reputation < 2 && next.day > 20;
   const burnoutCollapse = next.fatigueIndex > 0.96 && next.day > 20;
 
-  next.gameOver = bankruptcy || reputationCollapse || burnoutCollapse;
-  next.gameWon =
-    next.mode === 'campaign' &&
-    next.week >= next.campaignGoal.targetWeek &&
-    next.reputation >= next.campaignGoal.targetReputation &&
-    next.cash >= next.campaignGoal.targetCash;
+  next = applyReputationTiers(next);
+  next = evaluateObjectives(next);
+
+  const mandatoryObjectivesMet = isScenarioWon(next);
+  const deadlineReached = next.week >= next.campaignGoal.targetWeek;
+  const objectiveDeadlineFail = deadlineReached && !mandatoryObjectivesMet && next.mode === 'campaign';
+
+  next.gameOver = bankruptcy || reputationCollapse || burnoutCollapse || isScenarioFailed(next) || objectiveDeadlineFail;
+  next.gameWon = next.mode === 'campaign' && mandatoryObjectivesMet && deadlineReached;
 
   next.operationalModifiers = {
     leadMultiplier: 1,

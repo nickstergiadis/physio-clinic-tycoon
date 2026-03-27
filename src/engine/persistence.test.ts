@@ -48,7 +48,7 @@ describe('persistence', () => {
     const slots = loadSlots();
     expect(slots[0].state.rooms.length).toBeGreaterThan(0);
     expect(Array.isArray(slots[0].state.staff)).toBe(true);
-    expect(slots[0].state.scenarioId).toBe('default');
+    expect(slots[0].state.scenarioId).toBe('community_rebuild');
     expect(slots[0].state.difficultyPreset).toBe('standard');
   });
 
@@ -58,5 +58,33 @@ describe('persistence', () => {
     expect(settings.soundEnabled).toBe(false);
     expect(settings.ambientEnabled).toBe(true);
     expect(settings.showTutorialHints).toBe(false);
+  });
+
+  it('preserves new progression state across save/load', () => {
+    let state = createInitialState('campaign', 'insurance_crunch', 'hardcore');
+    state = {
+      ...state,
+      districtTier: 2,
+      unlockedTierRewards: ['tier_local', 'tier_district'],
+      objectiveProgress: [{ objectiveId: 'loan_clear', completed: true, completedWeek: 6 }],
+      loan: {
+        principal: 5000,
+        interestRate: 0.03,
+        termWeeks: 8,
+        weeksRemaining: 3,
+        weeklyPayment: 900
+      },
+      lifetimeStats: {
+        attendedVisits: 120,
+        avgOutcomeRolling: 0.64
+      }
+    };
+
+    saveSlot('slot-2', 'Progress Save', state);
+    const loaded = loadSlots()[0].state;
+    expect(loaded.districtTier).toBe(2);
+    expect(loaded.objectiveProgress[0].objectiveId).toBe('loan_clear');
+    expect(loaded.loan?.weeksRemaining).toBe(3);
+    expect(loaded.lifetimeStats.attendedVisits).toBe(120);
   });
 });

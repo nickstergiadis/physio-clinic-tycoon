@@ -2,6 +2,7 @@ import { PATIENT_ARCHETYPES, ROOM_DEFS, SERVICES, STAFF_TEMPLATES, UPGRADES } fr
 import { GameState, RoomTypeId, ServiceId, StaffMember, StaffRoleId, StaffTraitId } from '../types/game';
 import { uid } from './utils';
 import { generatePatients, runDay } from './daySimulation';
+import { getDifficultyPreset } from './simulationConfig';
 
 export { generatePatients, runDay };
 const STAFF_TRAITS: StaffTraitId[] = ['steady', 'empathetic', 'fastLearner', 'resilient', 'specialistMindset'];
@@ -144,4 +145,36 @@ export const removeRoom = (state: GameState, roomId: string): GameState => {
   const room = state.rooms.find((r) => r.id === roomId);
   if (!room || (['reception', 'waiting', 'treatment', 'gym'].includes(room.type) && state.rooms.filter((r) => r.type === room.type).length <= 1)) return state;
   return { ...state, rooms: state.rooms.filter((r) => r.id !== roomId), clinicSize: Math.max(1, state.clinicSize - 1) };
+};
+
+export const takeLoan = (state: GameState, principal: number): GameState => {
+  if (state.mode !== 'campaign' || state.loan || principal < 2000 || principal > 25000) return state;
+  const difficulty = getDifficultyPreset(state.difficultyPreset);
+  const interestRate = 0.028 * difficulty.loanInterestMultiplier;
+  const termWeeks = 8;
+  const weeklyPayment = (principal * (1 + interestRate * termWeeks)) / termWeeks;
+
+  return {
+    ...state,
+    cash: state.cash + principal,
+    loan: {
+      principal,
+      interestRate,
+      termWeeks,
+      weeksRemaining: termWeeks,
+      weeklyPayment
+    },
+    eventLog: [`Took a financing loan for $${principal}. Weekly payment: $${Math.round(weeklyPayment)}.`, ...state.eventLog].slice(0, 12)
+  };
+};
+
+export const repayLoan = (state: GameState, amount: number): GameState => {
+  if (!state.loan || amount <= 0 || state.cash < amount) return state;
+  const remainingPrincipal = Math.max(0, state.loan.principal - amount);
+  return {
+    ...state,
+    cash: state.cash - amount,
+    loan: remainingPrincipal <= 0 ? null : { ...state.loan, principal: remainingPrincipal },
+    eventLog: [`Paid $${Math.round(amount)} toward loan principal.`, ...state.eventLog].slice(0, 12)
+  };
 };

@@ -9,7 +9,7 @@ const migrateState = (state: Partial<GameState>, fromVersion: number): Partial<G
   if (fromVersion < 2) {
     return {
       ...state,
-      scenarioId: state.scenarioId ?? 'default',
+      scenarioId: (state.scenarioId as GameState['scenarioId']) ?? 'community_rebuild',
       difficultyPreset: state.difficultyPreset ?? (state.mode === 'sandbox' ? 'relaxed' : 'standard')
     };
   }
@@ -28,6 +28,17 @@ const migrateState = (state: Partial<GameState>, fromVersion: number): Partial<G
       ...state,
       staff: state.staff ?? undefined,
       rooms: state.rooms ?? undefined
+    };
+  }
+
+  if (fromVersion < 5) {
+    return {
+      ...state,
+      objectiveProgress: state.objectiveProgress ?? undefined,
+      districtTier: state.districtTier ?? undefined,
+      unlockedTierRewards: state.unlockedTierRewards ?? undefined,
+      loan: state.loan ?? undefined,
+      lifetimeStats: state.lifetimeStats ?? undefined
     };
   }
 
@@ -105,10 +116,29 @@ const sanitizeState = (state: GameState): GameState => {
       targetWeek: migrated.campaignGoal?.targetWeek ?? base.campaignGoal.targetWeek,
       targetReputation: migrated.campaignGoal?.targetReputation ?? base.campaignGoal.targetReputation,
       targetCash: migrated.campaignGoal?.targetCash ?? base.campaignGoal.targetCash
+    },
+    objectiveProgress: Array.isArray(migrated.objectiveProgress) ? migrated.objectiveProgress : base.objectiveProgress,
+    districtTier: migrated.districtTier ?? base.districtTier,
+    unlockedTierRewards: Array.isArray(migrated.unlockedTierRewards) ? migrated.unlockedTierRewards : base.unlockedTierRewards,
+    loan: migrated.loan
+      ? {
+          principal: migrated.loan.principal ?? 0,
+          interestRate: migrated.loan.interestRate ?? 0.028,
+          termWeeks: migrated.loan.termWeeks ?? 8,
+          weeksRemaining: migrated.loan.weeksRemaining ?? 8,
+          weeklyPayment: migrated.loan.weeklyPayment ?? 0
+        }
+      : base.loan,
+    lifetimeStats: {
+      attendedVisits: migrated.lifetimeStats?.attendedVisits ?? base.lifetimeStats.attendedVisits,
+      avgOutcomeRolling: migrated.lifetimeStats?.avgOutcomeRolling ?? base.lifetimeStats.avgOutcomeRolling
     }
   };
 
   merged.clinicSize = merged.rooms.length;
+  if (!['community_rebuild', 'sports_performance', 'insurance_crunch'].includes(merged.scenarioId)) {
+    merged.scenarioId = base.scenarioId;
+  }
   merged.maxClinicSize = Math.max(merged.maxClinicSize, 6);
   merged.speed = [0, 1, 2, 3].includes(merged.speed) ? merged.speed : 0;
   return merged;
