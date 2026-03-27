@@ -39,6 +39,7 @@ button.danger { background: #c44747; }
 .hud-stats { display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.95rem; color: #2f4a5e; }
 .tabs { display: flex; flex-wrap: wrap; gap: 0.45rem; }
 .tabs button.active { background: #17a668; }
+.tab-helper { padding: 0.6rem 0.75rem; border-radius: 10px; background: #f0f6fb; color: #335266; border: 1px solid #dce8f2; font-size: 0.92rem; }
 .content { display: grid; gap: 0.8rem; }
 .status-banner { padding: 0.6rem 0.75rem; border-radius: 10px; background: #ecf8ff; color: #145277; font-weight: 600; }
 .alert-strip { padding: 0.6rem 0.75rem; border-radius: 10px; background: #fff4e5; color: #8b4b0e; font-weight: 700; border: 1px solid #ffd5a6; }
@@ -56,6 +57,13 @@ button.danger { background: #c44747; }
 .build-option.active { background: #17a668; }
 
 .patient-list, .upgrade-list { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.insight-list { display: grid; gap: 0.45rem; margin-bottom: 0.9rem; }
+.insight-row { border-radius: 10px; padding: 0.5rem 0.65rem; display: grid; gap: 0.15rem; border: 1px solid transparent; }
+.mini-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.45rem; margin-bottom: 0.6rem; }
+.mini-metric { border-radius: 10px; padding: 0.45rem 0.6rem; background: #f7fbff; display: grid; gap: 0.1rem; }
+.tone-positive { background: #eefaf3; border-color: #c4e7d0; color: #135230; }
+.tone-negative { background: #fff3f1; border-color: #f1c4bd; color: #8a2e2e; }
+.tone-neutral { background: #f6f8fb; border-color: #dde5ee; color: #364e63; }
 
 .overlay { position: fixed; inset: 0; background: rgba(12, 20, 31, 0.5); display: grid; place-items: center; }
 .campaign-box { margin-top: 1rem; padding: 0.8rem; border-radius: 10px; background: #f1f8fc; }
