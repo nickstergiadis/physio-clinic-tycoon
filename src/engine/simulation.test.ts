@@ -6,7 +6,7 @@ describe('simulation core loop', () => {
   it('generates patient queue with meaningful size', () => {
     const state = createInitialState('campaign');
     const queue = generatePatients(state);
-    expect(queue.length).toBeGreaterThan(3);
+    expect(queue.length).toBeGreaterThan(4);
   });
 
   it('runDay advances timeline and produces summary', () => {
@@ -82,8 +82,48 @@ describe('simulation core loop', () => {
 
   it('failure condition triggers for bankruptcy', () => {
     const state = createInitialState('campaign');
-    const insolvent = { ...state, cash: -6000 };
+    const insolvent = { ...state, cash: -15000 };
     const next = runDay(insolvent);
     expect(next.gameOver).toBe(true);
+  });
+
+  it('opening campaign remains playable for two weeks under default play', () => {
+    let state = { ...createInitialState('campaign'), seed: 4242 };
+    const dailyProfits: number[] = [];
+
+    for (let i = 0; i < 14; i += 1) {
+      state = runDay(state);
+      dailyProfits.push(state.latestSummary?.profit ?? 0);
+    }
+
+    const catastrophicDays = dailyProfits.filter((profit) => profit < -1200).length;
+    expect(state.gameOver).toBe(false);
+    expect(state.cash).toBeGreaterThan(4000);
+    expect(catastrophicDays).toBeLessThanOrEqual(2);
+  });
+
+  it('campaign remains losable under sustained poor management', () => {
+    let state = { ...createInitialState('campaign'), seed: 8484, cash: 6000 };
+    state = state.staff.reduce((acc, member) => toggleStaffSchedule(acc, member.uid), state);
+
+    for (let i = 0; i < 12 && !state.gameOver; i += 1) {
+      state = runDay(state);
+    }
+
+    expect(state.gameOver).toBe(true);
+    expect(state.cash).toBeLessThan(0);
+  });
+
+  it('sandbox economy remains easier than campaign', () => {
+    let campaign = { ...createInitialState('campaign'), seed: 2222 };
+    let sandbox = { ...createInitialState('sandbox'), seed: 2222 };
+
+    for (let i = 0; i < 7; i += 1) {
+      campaign = runDay(campaign);
+      sandbox = runDay(sandbox);
+    }
+
+    expect(sandbox.cash).toBeGreaterThan(campaign.cash);
+    expect(sandbox.reputation).toBeGreaterThanOrEqual(campaign.reputation);
   });
 });
