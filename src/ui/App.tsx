@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ROOM_DEFS, STAFF_TEMPLATES, UPGRADES } from '../data/content';
 import { buyUpgrade, fireStaff, hireStaff, placeRoom, removeRoom, runDay, toggleStaffSchedule } from '../engine/simulation';
 import { deleteSlot, loadSettings, loadSlots, saveSettings, saveSlot } from '../engine/persistence';
@@ -234,14 +234,15 @@ export function App() {
 
   const availableUpgrades = UPGRADES.filter((u) => !state.unlockedUpgrades.includes(u.id)).sort((a, b) => Number(state.cash < a.cost) - Number(state.cash < b.cost) || a.cost - b.cost);
 
-  const campaignProgress = useMemo(() => {
+  // Keep derived values as plain constants so no hook is declared below conditional returns.
+  const campaignProgress = (() => {
     if (state.mode !== 'campaign') return null;
     return {
       week: `${state.week}/${state.campaignGoal.targetWeek}`,
       rep: `${state.reputation.toFixed(0)}/${state.campaignGoal.targetReputation}`,
       cash: `${Math.round(state.cash)}/${state.campaignGoal.targetCash}`
     };
-  }, [state]);
+  })();
 
   const onboardingChecklist = [
     { done: Boolean(state.latestSummary), label: 'Run your first day' },
