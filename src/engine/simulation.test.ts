@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialState } from './state';
-import { buyUpgrade, fireStaff, generatePatients, hireStaff, placeRoom, runDay, toggleStaffSchedule } from './simulation';
+import { assignStaffRoom, buyUpgrade, fireStaff, generatePatients, hireStaff, placeRoom, runDay, startStaffTraining, toggleStaffSchedule } from './simulation';
 
 describe('simulation core loop', () => {
   it('generates patient queue with meaningful size', () => {
@@ -157,5 +157,23 @@ describe('simulation core loop', () => {
     expect(recovered.cash).toBeGreaterThan(-20000);
     expect((recovered.latestSummary?.lostDemand.noShows ?? 99)).toBeLessThanOrEqual(baseline.latestSummary?.lostDemand.noShows ?? 99);
     expect((recovered.latestSummary?.profit ?? -9999)).toBeGreaterThan(baseline.latestSummary?.profit ?? -9999);
+  });
+
+  it('blocks front desk training to avoid invalid service certification state', () => {
+    const state = createInitialState('campaign');
+    const frontDesk = state.staff.find((member) => member.role === 'frontDesk');
+    expect(frontDesk).toBeTruthy();
+
+    const next = startStaffTraining(state, frontDesk!.uid);
+    expect(next).toBe(state);
+  });
+
+  it('prevents assigning staff to room types not built in the clinic', () => {
+    const state = createInitialState('campaign');
+    const clinician = state.staff.find((member) => member.role === 'physio');
+    expect(clinician).toBeTruthy();
+
+    const invalid = assignStaffRoom(state, clinician!.uid, 'hydro');
+    expect(invalid.staff.find((member) => member.uid === clinician!.uid)?.assignedRoom).toBe(clinician!.assignedRoom);
   });
 });

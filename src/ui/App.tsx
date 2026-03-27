@@ -301,6 +301,7 @@ export function App() {
 
   const clinicianScheduled = state.staff.some((s) => s.scheduled && (s.role === 'physio' || s.role === 'assistant' || s.role === 'specialist'));
   const emptyTiles = state.maxClinicSize - state.rooms.length;
+  const assignableRoomTypes = [...new Set(state.rooms.map((room) => room.type))];
   const financeSnapshot = getFinanceSnapshot(state);
   const staffInsights = getStaffInsights(state);
   const demandPressure = getDemandPressure(state.latestSummary);
@@ -538,13 +539,13 @@ export function App() {
                     </select>
                     <select value={s.assignedRoom} onChange={(e) => setState(assignStaffRoom(state, s.uid, e.target.value as RoomTypeId | 'flex'))}>
                       <option value="flex">Any room</option>
-                      {state.unlockedRooms.map((roomType) => (
+                      {assignableRoomTypes.map((roomType) => (
                         <option key={roomType} value={roomType}>
                           {roomType}
                         </option>
                       ))}
                     </select>
-                    <button disabled={s.trainingDaysRemaining > 0 || state.cash < 900} onClick={() => setState(startStaffTraining(state, s.uid))}>Train</button>
+                    <button disabled={s.role === 'frontDesk' || s.trainingDaysRemaining > 0 || state.cash < 900} onClick={() => setState(startStaffTraining(state, s.uid))}>Train</button>
                     <button onClick={() => setState(toggleStaffSchedule(state, s.uid))}>{s.scheduled ? 'Unschedule' : 'Schedule'}</button>
                     <button className="danger" onClick={() => setState(fireStaff(state, s.uid))}>Fire</button>
                   </div>
