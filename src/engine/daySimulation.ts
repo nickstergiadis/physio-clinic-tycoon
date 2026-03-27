@@ -196,7 +196,7 @@ const resolveVisits = (state: GameState, queue: PatientVisit[], capacity: number
     const wait = Math.max(0, (i + 1 - capacity * BALANCE.comfortCapacityRatio) * BALANCE.waitUnitMinutes);
     const matchingFocusedRoom = serviceRooms.filter((room) => room.focusService === service.id).length;
     const avgEquipment = average(serviceRooms.map((room) => room.equipmentLevel));
-    const facilityFit = (avgEquipment - 1) * 0.06 * service.equipmentSensitivity + (matchingFocusedRoom / serviceRooms.length) * 0.06 * service.facilitySensitivity;
+    const facilityFit = (avgEquipment - 1) * 0.08 * service.equipmentSensitivity + (matchingFocusedRoom / serviceRooms.length) * 0.06 * service.facilitySensitivity;
     if (service.equipmentSensitivity > 0.35 && avgEquipment < 1.6) equipmentBottlenecks += 1;
     const specialty = staffServiceFit(staff, archetype, service.id, service.requiredRoom);
     const burnoutPenalty = staff.burnoutRisk * 0.08;
@@ -275,7 +275,10 @@ export const runDay = (state: GameState): GameState => {
     -3,
     4
   ) - preset.reputationDecay;
-  const referralsDelta = Math.round(clamp(reputationDelta * 0.55 + visits.attended * 0.045 - visits.capacityLost * 0.025 + 0.35, -2, 5));
+  const referralSaturationPenalty = Math.max(0, (next.referrals - 28) * 0.08);
+  const referralsDelta = Math.round(
+    clamp(reputationDelta * 0.48 + visits.attended * 0.038 - visits.capacityLost * 0.03 + 0.22 - referralSaturationPenalty, -2, 3)
+  );
   const fatigueIndex = clamp(average(next.staff.map((staffMember) => staffMember.fatigue)) / 100, 0, 1);
 
   next.staff = next.staff.map((staffMember) => ({
