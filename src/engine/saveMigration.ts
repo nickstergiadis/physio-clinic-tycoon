@@ -39,6 +39,13 @@ export const migrateStateByVersion = (state: Partial<GameState>, fromVersion: nu
     };
   }
 
+  if (fromVersion < 6) {
+    return {
+      ...state,
+      patients: state.patients ?? undefined
+    };
+  }
+
   return state;
 };
 
@@ -76,7 +83,29 @@ export const sanitizeState = (state: GameState): GameState => {
     unlockedUpgrades: Array.isArray(migrated.unlockedUpgrades) ? migrated.unlockedUpgrades : base.unlockedUpgrades,
     unlockedRooms: Array.isArray(migrated.unlockedRooms) ? migrated.unlockedRooms : base.unlockedRooms,
     unlockedServices: Array.isArray(migrated.unlockedServices) ? migrated.unlockedServices : base.unlockedServices,
-    patientQueue: Array.isArray(migrated.patientQueue) ? migrated.patientQueue : base.patientQueue,
+    patientQueue: Array.isArray(migrated.patientQueue)
+      ? migrated.patientQueue.map((visit) => ({
+          ...visit,
+          patientId: visit.patientId ?? visit.id
+        }))
+      : base.patientQueue,
+    patients: Array.isArray(migrated.patients)
+      ? migrated.patients.map((patient) => ({
+          ...patient,
+          payerType: patient.payerType ?? 'insured',
+          lifecycleState: patient.lifecycleState ?? 'lead',
+          clinicalProgress: patient.clinicalProgress ?? 0,
+          satisfaction: patient.satisfaction ?? 0.6,
+          patience: patient.patience ?? 0.6,
+          adherence: patient.adherence ?? 0.6,
+          noShowPropensity: patient.noShowPropensity ?? 0.12,
+          referralLikelihood: patient.referralLikelihood ?? 0.3,
+          expectedTotalVisits: patient.expectedTotalVisits ?? 6,
+          remainingVisits: patient.remainingVisits ?? patient.expectedTotalVisits ?? 6,
+          nextRecommendedService: patient.nextRecommendedService ?? 'followUp',
+          futureBookings: Array.isArray(patient.futureBookings) ? patient.futureBookings : []
+        }))
+      : base.patients,
     demandSnapshot: {
       inboundLeads: migrated.demandSnapshot?.inboundLeads ?? base.demandSnapshot.inboundLeads,
       bookedVisits: migrated.demandSnapshot?.bookedVisits ?? base.demandSnapshot.bookedVisits,

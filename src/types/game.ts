@@ -245,11 +245,33 @@ export interface EventCard {
 
 export interface PatientVisit {
   id: string;
+  patientId: string;
   archetype: PatientArchetypeId;
   service: ServiceId;
   complexity: number;
   insured: boolean;
   status: 'waiting' | 'completed' | 'noShow' | 'late';
+}
+
+export type PatientLifecycleState = 'lead' | 'booked' | 'arrived' | 'waiting' | 'treated' | 'needsFollowUp' | 'discharged' | 'droppedOut';
+
+export interface PersistentPatient {
+  id: string;
+  archetype: PatientArchetypeId;
+  payerType: 'insured' | 'selfPay';
+  lifecycleState: PatientLifecycleState;
+  clinicalProgress: number;
+  satisfaction: number;
+  patience: number;
+  adherence: number;
+  noShowPropensity: number;
+  referralLikelihood: number;
+  expectedTotalVisits: number;
+  remainingVisits: number;
+  nextRecommendedService: ServiceId;
+  futureBookings: number[];
+  lastVisitDay?: number;
+  lastTransitionDay?: number;
 }
 
 export interface DaySummary {
@@ -333,6 +355,7 @@ export interface GameState {
   staff: StaffMember[];
   rooms: RoomInstance[];
   patientQueue: PatientVisit[];
+  patients: PersistentPatient[];
   demandSnapshot: {
     inboundLeads: number;
     bookedVisits: number;

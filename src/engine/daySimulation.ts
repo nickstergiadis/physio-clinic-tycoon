@@ -4,25 +4,33 @@ import { applyRandomEvent } from './events';
 import { BALANCE, getDifficultyPreset, sumUpgradeEffect } from './simulationConfig';
 import { applyReputationTiers, evaluateObjectives, getScenario, isScenarioFailed, isScenarioWon } from './campaign';
 import { calculateDemandInputs } from './demandGeneration';
-import { generateAppointments } from './appointmentGeneration';
 import { buildWeeklyLedger, resolveDailyEconomy, totalWeeklyFixedCosts } from './economy';
 import { resolveVisits, treatmentCapacity } from './visitResolution';
+import { buildDailyPatientFlow, updatePatientJourneys } from './patientJourney';
 
 interface DemandBuild {
   leads: number;
   booked: PatientVisit[];
+  newPatients: GameState['patients'];
+  returningBooked: number;
+  rebookedFromExisting: number;
+  referrals: number;
   lostUnbooked: number;
   lostServiceMismatch: number;
 }
 
 const buildDailyDemand = (state: GameState): DemandBuild => {
   const { leads, bookingRate } = calculateDemandInputs(state);
-  const appointments = generateAppointments(state, leads, bookingRate);
+  const flow = buildDailyPatientFlow(state, state.day, leads, bookingRate);
   return {
-    leads,
-    booked: appointments.booked,
-    lostUnbooked: appointments.lostUnbooked,
-    lostServiceMismatch: appointments.lostServiceMismatch
+    leads: flow.inboundLeads,
+    booked: flow.bookedVisits,
+    newPatients: flow.newPatients,
+    returningBooked: flow.returningBooked,
+    rebookedFromExisting: flow.rebookedFromExisting,
+    referrals: flow.referralLeads,
+    lostUnbooked: flow.lostUnbooked,
+    lostServiceMismatch: flow.lostServiceMismatch
   };
 };
 
@@ -37,6 +45,7 @@ export const runDay = (state: GameState): GameState => {
     staff: state.staff.map((member) => ({ ...member })),
     rooms: state.rooms.map((room) => ({ ...room })),
     patientQueue: state.patientQueue.map((visit) => ({ ...visit })),
+    patients: state.patients.map((patient) => ({ ...patient, futureBookings: [...patient.futureBookings] })),
     operationalModifiers: { ...state.operationalModifiers }
   };
 
@@ -45,6 +54,7 @@ export const runDay = (state: GameState): GameState => {
   const demand = buildDailyDemand(next);
   const capacity = treatmentCapacity(next);
   const visits = resolveVisits(next, demand.booked, capacity);
+  next.patients = updatePatientJourneys({ ...next, patients: [...next.patients, ...demand.newPatients] }, next.day, visits.journeyEvents);
 
   const avgOutcome = average(visits.outcomes);
   const avgWait = visits.attended > 0 ? visits.totalWait / visits.attended : 0;
@@ -72,9 +82,8 @@ export const runDay = (state: GameState): GameState => {
     4
   ) - preset.reputationDecay;
   const referralSaturationPenalty = Math.max(0, (next.referrals - 28) * 0.08);
-  const referralsDelta = Math.round(
-    clamp(reputationDelta * 0.48 + visits.attended * 0.038 - visits.capacityLost * 0.03 + 0.22 - referralSaturationPenalty, -2, 3)
-  );
+  const referralMomentum = next.patients.filter((patient) => patient.lifecycleState === 'discharged' && patient.lastTransitionDay === next.day).length * 0.08;
+  const referralsDelta = Math.round(clamp(reputationDelta * 0.48 + visits.attended * 0.038 - visits.capacityLost * 0.03 + 0.22 + referralMomentum - referralSaturationPenalty, -2, 4));
   const fatigueIndex = clamp(average(next.staff.map((staffMember) => staffMember.fatigue)) / 100, 0, 1);
 
   next.staff = next.staff.map((staffMember) => ({
@@ -173,7 +182,7 @@ export const runDay = (state: GameState): GameState => {
       equipment: visits.equipmentBottlenecks,
       burnout: visits.burnoutPressure
     },
-    notes
+    notes: [...notes, `Demand sources: new leads ${demand.leads}, returning booked ${demand.returningBooked}, referrals ${demand.referrals}.`]
   };
 
   next.latestSummary = summary;

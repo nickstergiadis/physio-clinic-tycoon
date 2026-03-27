@@ -44,6 +44,14 @@ export interface VisitResolution {
   equipmentBottlenecks: number;
   burnoutPressure: number;
   resolvedVisits: PatientVisit[];
+  journeyEvents: {
+    patientId: string;
+    result: 'completed' | 'noShow' | 'cancelled' | 'unserved';
+    wait: number;
+    outcome: number;
+    satisfaction: number;
+    service: ServiceId;
+  }[];
 }
 
 const staffServiceFit = (staff: StaffMember, archetype: PatientArchetype, serviceId: ServiceId, requiredRoom: RoomTypeId): number => {
@@ -81,6 +89,7 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
   let equipmentBottlenecks = 0;
   let burnoutPressure = 0;
   const resolvedVisits: PatientVisit[] = [];
+  const journeyEvents: VisitResolution['journeyEvents'] = [];
 
   for (let i = 0; i < processable.length; i += 1) {
     const visit = markWaitingVisit(processable[i]);
@@ -90,24 +99,28 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
     if (!hasScheduledStaff) {
       staffingBottlenecks += 1;
       cancellations += 1;
+      journeyEvents.push({ patientId: visit.patientId, result: 'cancelled', wait: 0, outcome: 0, satisfaction: 0, service: visit.service });
       continue;
     }
     const serviceRooms = state.rooms.filter((room) => room.type === service.requiredRoom);
     if (serviceRooms.length === 0 || !hasRoom(state, service.requiredRoom)) {
       roomBottlenecks += 1;
       cancellations += 1;
+      journeyEvents.push({ patientId: visit.patientId, result: 'cancelled', wait: 0, outcome: 0, satisfaction: 0, service: visit.service });
       continue;
     }
     const eligibleStaff = staffPool.filter((staff) => staff.assignedRoom === 'flex' || staff.assignedRoom === service.requiredRoom);
     if (eligibleStaff.length === 0) {
       staffingBottlenecks += 1;
       cancellations += 1;
+      journeyEvents.push({ patientId: visit.patientId, result: 'cancelled', wait: 0, outcome: 0, satisfaction: 0, service: visit.service });
       continue;
     }
     const staff = [...eligibleStaff].sort((a, b) => staffServiceFit(b, archetype, service.id, service.requiredRoom) - staffServiceFit(a, archetype, service.id, service.requiredRoom))[0];
     const cancellationChance = clamp(0.04 + archetype.complexity * 0.08 + modifier.cancellationShift + preset.cancellationShift, 0.01, 0.35);
     if (rand(state.seed + state.day * 41 + i) < cancellationChance) {
       cancellations += 1;
+      journeyEvents.push({ patientId: visit.patientId, result: 'cancelled', wait: 0, outcome: 0, satisfaction: 0, service: visit.service });
       continue;
     }
 
@@ -119,6 +132,7 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
     if (rand(state.seed + state.day * 31 + i) < noShowChance) {
       noShows += 1;
       resolvedVisits.push(markNoShowVisit(visit));
+      journeyEvents.push({ patientId: visit.patientId, result: 'noShow', wait: 0, outcome: 0, satisfaction: 0, service: visit.service });
       continue;
     }
 
@@ -141,6 +155,7 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
     outcomes.push(outcome);
     attended += 1;
     resolvedVisits.push(markCompletedVisit(visit));
+    journeyEvents.push({ patientId: visit.patientId, result: 'completed', wait, outcome, satisfaction, service: visit.service });
 
     const fatigueGain = service.fatigueImpact * BALANCE.fatigueServiceScale * (1 - staff.fatigueResistance * BALANCE.fatigueResistanceWeight);
     staff.fatigue = clamp(staff.fatigue + fatigueGain, 0, 100);
@@ -148,5 +163,9 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
     burnoutPressure += staff.fatigue > 70 ? 1 : 0;
   }
 
-  return { revenue, variableCosts, adminLoad, totalWait, cancellations, noShows, attended, capacityLost, outcomes, staffingBottlenecks, roomBottlenecks, equipmentBottlenecks, burnoutPressure, resolvedVisits };
+  for (const visit of queue.slice(capacity)) {
+    journeyEvents.push({ patientId: visit.patientId, result: 'unserved', wait: 0, outcome: 0, satisfaction: 0, service: visit.service });
+  }
+
+  return { revenue, variableCosts, adminLoad, totalWait, cancellations, noShows, attended, capacityLost, outcomes, staffingBottlenecks, roomBottlenecks, equipmentBottlenecks, burnoutPressure, resolvedVisits, journeyEvents };
 };

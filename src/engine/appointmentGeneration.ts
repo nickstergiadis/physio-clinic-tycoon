@@ -37,6 +37,7 @@ export const generateAppointments = (state: GameState, leads: number, bookingRat
 
     booked.push({
       id: uid(),
+      patientId: uid(),
       archetype: archetype.id,
       service: resolvedService,
       complexity: archetype.complexity,
