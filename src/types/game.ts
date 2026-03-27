@@ -372,4 +372,7 @@ export interface GameState {
     avgOutcomeRolling: number;
   };
   settings: SettingsState;
+  dev?: {
+    highNoShowMode: boolean;
+  };
 }

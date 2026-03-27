@@ -17,6 +17,7 @@ import {
   repayLoan
 } from '../engine/simulation';
 import { deleteSlot, loadSettings, loadSlots, saveSettings, saveSlot } from '../engine/persistence';
+import { addCash, fastForwardDays, setHighNoShowMode, spawnSamplePatients } from '../engine/devTools';
 import { createInitialState } from '../engine/state';
 import { DaySummary, DifficultyPresetId, GameMode, GameState, RoomTypeId, SaveSlot, ScenarioId, Screen, ServiceId, StaffRoleId } from '../types/game';
 import { objectiveStatus } from '../engine/campaign';
@@ -49,6 +50,7 @@ const ROOM_ABBR: Record<RoomTypeId, string> = {
 };
 
 const formatDateTime = (timestamp: number) => new Date(timestamp).toLocaleString();
+const DEV_PANEL_ENABLED = Boolean(import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEV_PANEL === 'true');
 
 const summarizeUpgradeEffects = (effects: (typeof UPGRADES)[number]['effects']) => {
   const chips: string[] = [];
@@ -344,6 +346,20 @@ export function App() {
           <button onClick={() => saveToSlot(3)}>Save 3</button>
           <button className="ghost" onClick={() => setScreen('menu')}>Main Menu</button>
         </div>
+        {DEV_PANEL_ENABLED && (
+          <div className="card compact" style={{ marginTop: 8 }}>
+            <strong>Developer Controls</strong>
+            <div className="row" style={{ marginTop: 6 }}>
+              <button onClick={() => { const next = addCash(state, 5000); setState(next); setActionMessage('DEV: +$5,000 added.'); }}>Add Cash +$5k</button>
+              <button onClick={() => { const next = fastForwardDays(state, 7); setState(next); if (next.latestSummary) setActionMessage(`DEV: Fast-forwarded to day ${next.latestSummary.day}.`); }}>Fast-forward 7d</button>
+              <button onClick={() => { const next = fastForwardDays(state, 30); setState(next); if (next.latestSummary) setActionMessage(`DEV: Fast-forwarded to day ${next.latestSummary.day}.`); }}>Fast-forward 30d</button>
+              <button onClick={() => { const next = spawnSamplePatients(state); setState(next); setActionMessage('DEV: Spawned sample patients.'); }}>Spawn Sample Patients</button>
+              <button onClick={() => { const enabled = !(state.dev?.highNoShowMode ?? false); const next = setHighNoShowMode(state, enabled); setState(next); setActionMessage(`DEV: High no-show mode ${enabled ? 'enabled' : 'disabled'}.`); }}>
+                High No-Show: {(state.dev?.highNoShowMode ?? false) ? 'ON' : 'OFF'}
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       <nav className="tabs">
