@@ -1,9 +1,22 @@
 import { useEffect, useState } from 'react';
-import { ROOM_DEFS, STAFF_TEMPLATES, UPGRADES } from '../data/content';
-import { buyUpgrade, fireStaff, hireStaff, placeRoom, removeRoom, runDay, toggleStaffSchedule } from '../engine/simulation';
+import { ROOM_DEFS, SERVICES, STAFF_TEMPLATES, UPGRADES } from '../data/content';
+import {
+  assignStaffRoom,
+  buyUpgrade,
+  fireStaff,
+  hireStaff,
+  placeRoom,
+  removeRoom,
+  runDay,
+  setRoomFocus,
+  setStaffShift,
+  startStaffTraining,
+  toggleStaffSchedule,
+  upgradeRoomEquipment
+} from '../engine/simulation';
 import { deleteSlot, loadSettings, loadSlots, saveSettings, saveSlot } from '../engine/persistence';
 import { createInitialState } from '../engine/state';
-import { DaySummary, GameMode, GameState, RoomTypeId, SaveSlot, Screen, StaffRoleId } from '../types/game';
+import { DaySummary, GameMode, GameState, RoomTypeId, SaveSlot, Screen, ServiceId, StaffRoleId } from '../types/game';
 
 const tabs: GameState['selectedTab'][] = ['overview', 'build', 'staff', 'patients', 'finance', 'upgrades'];
 
@@ -327,6 +340,7 @@ export function App() {
                   <p>Revenue ${state.latestSummary.revenue} · Expenses ${state.latestSummary.expenses} · Profit ${state.latestSummary.profit}</p>
                   <p>Leads {state.latestSummary.inboundLeads} → Booked {state.latestSummary.bookedVisits} → Attended {state.latestSummary.attendedVisits} ({state.latestSummary.utilization.toFixed(1)}% utilization)</p>
                   <p>Lost: unbooked {state.latestSummary.lostDemand.unbooked}, capacity {state.latestSummary.lostDemand.capacity}, cancellations {state.latestSummary.lostDemand.cancellations}, no-shows {state.latestSummary.lostDemand.noShows}</p>
+                  <p>Bottlenecks: staff {state.latestSummary.bottlenecks.staffing}, rooms {state.latestSummary.bottlenecks.room}, equipment {state.latestSummary.bottlenecks.equipment}, burnout pressure {state.latestSummary.bottlenecks.burnout}</p>
                   {state.latestSummary.notes.length > 0 && (
                     <ul>
                       {state.latestSummary.notes.map((note) => <li key={note}>{note}</li>)}
@@ -406,12 +420,37 @@ export function App() {
                   >
                     <span>
                       <strong>{room.name}</strong>
-                      <small>${room.cost} · maintenance ${room.maintenance}/day · throughput +{Math.round(room.throughputBonus * 100)}%</small>
+                      <small>${room.cost} · maintenance ${room.maintenance}/day · throughput +{Math.round(room.throughputBonus * 100)}% · equipment synergy</small>
                     </span>
                     <span>{!unlocked ? 'Locked' : !affordable ? 'Too Expensive' : 'Select'}</span>
                   </button>
                 );
               })}
+              <h4>Facility operations</h4>
+              {state.rooms.map((room) => (
+                <div key={room.id} className="row card compact">
+                  <div>
+                    <strong>{room.type}</strong> · Equip T{room.equipmentLevel}
+                    <div><small>Focus: {room.focusService}</small></div>
+                  </div>
+                  <div className="row">
+                    <button
+                      disabled={room.equipmentLevel >= 3 || state.cash < 1200 * room.equipmentLevel}
+                      onClick={() => setState(upgradeRoomEquipment(state, room.id))}
+                    >
+                      Upgrade Equip
+                    </button>
+                    <select value={room.focusService} onChange={(e) => setState(setRoomFocus(state, room.id, e.target.value as ServiceId | 'general'))}>
+                      <option value="general">General</option>
+                      {SERVICES.filter((service) => service.requiredRoom === room.type).map((service) => (
+                        <option key={service.id} value={service.id}>
+                          {service.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ))}
             </article>
           </section>
         )}
@@ -424,10 +463,25 @@ export function App() {
                 <div key={s.uid} className="row card compact">
                   <div>
                     <strong>{s.name}</strong> · {ROLE_LABELS[s.role]}
-                    <div>Morale {s.morale.toFixed(0)} · Fatigue {s.fatigue.toFixed(0)} · Wage ${s.wage}/day</div>
+                    <div>Morale {s.morale.toFixed(0)} · Fatigue {s.fatigue.toFixed(0)} · Burnout {(s.burnoutRisk * 100).toFixed(0)}% · Wage ${s.wage}/day</div>
+                    <small>Trait {s.trait} · Focus {s.specialtyFocus} · Lvl {s.level} ({s.xp} XP) · Training {s.trainingDaysRemaining > 0 ? `${s.trainingDaysRemaining}d` : 'ready'}</small>
                     <small>Speed {Math.round(s.speed * 100)} · Care {Math.round(s.quality * 100)} · Docs {Math.round(s.documentation * 100)}</small>
                   </div>
                   <div className="row">
+                    <select value={s.shift} onChange={(e) => setState(setStaffShift(state, s.uid, e.target.value as 'off' | 'half' | 'full'))}>
+                      <option value="off">Off</option>
+                      <option value="half">Half</option>
+                      <option value="full">Full</option>
+                    </select>
+                    <select value={s.assignedRoom} onChange={(e) => setState(assignStaffRoom(state, s.uid, e.target.value as RoomTypeId | 'flex'))}>
+                      <option value="flex">Any room</option>
+                      {state.unlockedRooms.map((roomType) => (
+                        <option key={roomType} value={roomType}>
+                          {roomType}
+                        </option>
+                      ))}
+                    </select>
+                    <button disabled={s.trainingDaysRemaining > 0 || state.cash < 900} onClick={() => setState(startStaffTraining(state, s.uid))}>Train</button>
                     <button onClick={() => setState(toggleStaffSchedule(state, s.uid))}>{s.scheduled ? 'Unschedule' : 'Schedule'}</button>
                     <button className="danger" onClick={() => setState(fireStaff(state, s.uid))}>Fire</button>
                   </div>
