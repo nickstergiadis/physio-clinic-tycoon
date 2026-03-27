@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ROOM_DEFS, SERVICES, STAFF_TEMPLATES, UPGRADES } from '../data/content';
+import { CAMPAIGN_SCENARIOS, DIFFICULTY_PRESETS, ROOM_DEFS, SERVICES, STAFF_TEMPLATES, UPGRADES } from '../data/content';
 import {
   assignStaffRoom,
   buyUpgrade,
@@ -10,13 +10,16 @@ import {
   runDay,
   setRoomFocus,
   setStaffShift,
+  takeLoan,
   startStaffTraining,
   toggleStaffSchedule,
-  upgradeRoomEquipment
+  upgradeRoomEquipment,
+  repayLoan
 } from '../engine/simulation';
 import { deleteSlot, loadSettings, loadSlots, saveSettings, saveSlot } from '../engine/persistence';
 import { createInitialState } from '../engine/state';
-import { DaySummary, GameMode, GameState, RoomTypeId, SaveSlot, Screen, ServiceId, StaffRoleId } from '../types/game';
+import { DaySummary, DifficultyPresetId, GameMode, GameState, RoomTypeId, SaveSlot, ScenarioId, Screen, ServiceId, StaffRoleId } from '../types/game';
+import { objectiveStatus } from '../engine/campaign';
 
 const tabs: GameState['selectedTab'][] = ['overview', 'build', 'staff', 'patients', 'finance', 'upgrades'];
 
@@ -67,6 +70,8 @@ export function App() {
   const [state, setState] = useState<GameState | null>(null);
   const [slots, setSlots] = useState<SaveSlot[]>([]);
   const [selectedBuildRoom, setSelectedBuildRoom] = useState<RoomTypeId | null>(null);
+  const [selectedScenario, setSelectedScenario] = useState<ScenarioId>('community_rebuild');
+  const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyPresetId>('standard');
   const [actionMessage, setActionMessage] = useState<string>('');
 
   useEffect(() => {
@@ -113,7 +118,7 @@ export function App() {
   }, [screen, state?.paused, state?.speed, state?.gameOver, state?.gameWon]);
 
   const startGame = (mode: GameMode) => {
-    const initial = createInitialState(mode);
+    const initial = createInitialState(mode, selectedScenario, selectedDifficulty);
     initial.settings = loadSettings();
     setState(initial);
     setSelectedBuildRoom('treatment');
@@ -156,13 +161,32 @@ export function App() {
         <div className="grid-2">
           <button onClick={() => startGame('campaign')}>
             <strong>Campaign (Goal-driven)</strong>
-            <span>Reach ${60000} cash and 78 reputation by week 12. Tight pacing, strategic trade-offs.</span>
+            <span>Scenario objectives, financing pressure, and tier unlock progression.</span>
           </button>
           <button onClick={() => startGame('sandbox')}>
             <strong>Sandbox (Creative)</strong>
             <span>Start with $45,000 and no win/fail pressure. Good for experimenting with layouts/upgrades.</span>
           </button>
         </div>
+        <div className="row">
+          <label>
+            Scenario:&nbsp;
+            <select value={selectedScenario} onChange={(event) => setSelectedScenario(event.target.value as ScenarioId)}>
+              {Object.values(CAMPAIGN_SCENARIOS).map((scenario) => (
+                <option key={scenario.id} value={scenario.id}>{scenario.name}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Difficulty:&nbsp;
+            <select value={selectedDifficulty} onChange={(event) => setSelectedDifficulty(event.target.value as DifficultyPresetId)}>
+              {DIFFICULTY_PRESETS.map((preset) => (
+                <option key={preset.id} value={preset.id}>{preset.name}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <p className="subtitle">{CAMPAIGN_SCENARIOS[selectedScenario].description}</p>
         <button className="ghost" onClick={() => setScreen('menu')}>Back</button>
       </div>
     );
@@ -250,10 +274,12 @@ export function App() {
   // Keep derived values as plain constants so no hook is declared below conditional returns.
   const campaignProgress = (() => {
     if (state.mode !== 'campaign') return null;
+    const trackedObjectives = objectiveStatus(state);
     return {
       week: `${state.week}/${state.campaignGoal.targetWeek}`,
       rep: `${state.reputation.toFixed(0)}/${state.campaignGoal.targetReputation}`,
-      cash: `${Math.round(state.cash)}/${state.campaignGoal.targetCash}`
+      cash: `${Math.round(state.cash)}/${state.campaignGoal.targetCash}`,
+      objectives: trackedObjectives
     };
   })();
 
@@ -357,10 +383,18 @@ export function App() {
               </ul>
               {campaignProgress && (
                 <div className="campaign-box">
-                  <h4>Campaign Goal</h4>
+                  <h4>Campaign Goal ({CAMPAIGN_SCENARIOS[state.scenarioId].name})</h4>
                   <p>Week {campaignProgress.week}</p>
                   <p>Reputation {campaignProgress.rep}</p>
                   <p>Cash {campaignProgress.cash}</p>
+                  <p>District tier: {state.districtTier}</p>
+                  <ul>
+                    {campaignProgress.objectives.map((objective) => (
+                      <li key={objective.id}>
+                        {objective.completed ? '✅' : '⬜'} {objective.label} ({typeof objective.value === 'number' ? objective.value.toFixed(objective.metric === 'avgOutcome' ? 2 : 0) : objective.value}/{objective.target}) by week {objective.deadlineWeek}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </article>
@@ -547,6 +581,15 @@ export function App() {
               <p>Rent/day: ${state.rent} · Equipment/day: ${state.equipmentCost}</p>
               <p>Docs penalty estimate today: ${docsPenaltyEstimate} (variable cost)</p>
               <p>Runway vs fixed liabilities: {lowRunway} week(s)</p>
+              {state.loan && (
+                <>
+                  <p>Loan principal: ${Math.round(state.loan.principal)} · weekly payment: ${Math.round(state.loan.weeklyPayment)} · weeks left: {state.loan.weeksRemaining}</p>
+                  <button disabled={state.cash < 1000} onClick={() => setState(repayLoan(state, Math.min(2000, Math.max(1000, state.cash * 0.1))))}>Repay $1k-$2k</button>
+                </>
+              )}
+              {!state.loan && state.mode === 'campaign' && (
+                <button onClick={() => setState(takeLoan(state, CAMPAIGN_SCENARIOS[state.scenarioId].startingLoanOffer))}>Take scenario financing (${CAMPAIGN_SCENARIOS[state.scenarioId].startingLoanOffer})</button>
+              )}
               {state.latestSummary && (
                 <>
                   <p>Latest P/L: Revenue ${state.latestSummary.revenue} - Variable ${state.latestSummary.variableCosts} - Fixed ${state.latestSummary.fixedCosts} = ${state.latestSummary.profit}</p>
@@ -617,6 +660,7 @@ export function App() {
                 <li>Reached week {state.week} / {state.campaignGoal.targetWeek}</li>
                 <li>Reputation {state.reputation.toFixed(0)} / {state.campaignGoal.targetReputation}</li>
                 <li>Cash ${Math.round(state.cash)} / ${state.campaignGoal.targetCash}</li>
+                <li>District tier {state.districtTier} · Objectives complete {state.objectiveProgress.filter((item) => item.completed).length}/{state.objectiveProgress.length}</li>
               </ul>
             )}
             <div className="row">

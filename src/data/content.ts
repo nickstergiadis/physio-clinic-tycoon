@@ -1,14 +1,17 @@
 import {
   DifficultyPreset,
   PatientArchetype,
+  ScenarioDefinition,
+  ScenarioId,
   RoomDefinition,
+  ReputationTier,
   SimulationBalance,
   ServiceDefinition,
   StaffTemplate,
   UpgradeDefinition
 } from '../types/game';
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 export const PATIENT_ARCHETYPES: PatientArchetype[] = [
   {
@@ -235,9 +238,104 @@ export const UPGRADES: UpgradeDefinition[] = [
 ];
 
 export const DIFFICULTY_PRESETS: DifficultyPreset[] = [
-  { id: 'relaxed', name: 'Relaxed', demandMultiplier: 1, revenueMultiplier: 1, expenseMultiplier: 1 },
-  { id: 'standard', name: 'Standard', demandMultiplier: 1, revenueMultiplier: 1, expenseMultiplier: 1 },
-  { id: 'hardcore', name: 'Hardcore', demandMultiplier: 1, revenueMultiplier: 1, expenseMultiplier: 1 }
+  {
+    id: 'relaxed',
+    name: 'Relaxed',
+    demandMultiplier: 1.08,
+    revenueMultiplier: 1.04,
+    expenseMultiplier: 0.94,
+    noShowShift: -0.02,
+    cancellationShift: -0.01,
+    reputationDecay: 0,
+    loanInterestMultiplier: 0.85
+  },
+  {
+    id: 'standard',
+    name: 'Standard',
+    demandMultiplier: 1,
+    revenueMultiplier: 1,
+    expenseMultiplier: 1,
+    noShowShift: 0,
+    cancellationShift: 0,
+    reputationDecay: 0.04,
+    loanInterestMultiplier: 1
+  },
+  {
+    id: 'hardcore',
+    name: 'Hardcore',
+    demandMultiplier: 0.93,
+    revenueMultiplier: 0.94,
+    expenseMultiplier: 1.1,
+    noShowShift: 0.03,
+    cancellationShift: 0.02,
+    reputationDecay: 0.08,
+    loanInterestMultiplier: 1.2
+  }
+];
+
+export const CAMPAIGN_SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
+  community_rebuild: {
+    id: 'community_rebuild',
+    name: 'Community Rebuild',
+    description: 'Recover a clinic with strong local demand but weak trust and small reserves.',
+    startCash: 19000,
+    startReputation: 40,
+    startReferrals: 16,
+    rent: 800,
+    equipmentCost: 150,
+    startingLoanOffer: 10000,
+    demandMixBias: { olderAdult: 0.14, chronicPain: 0.1, workersComp: 0.08 },
+    objectives: [
+      { id: 'cashflow_positive', label: 'Build resilience fund', metric: 'cash', target: 35000, deadlineWeek: 10 },
+      { id: 'trusted_provider', label: 'Regain trust in district', metric: 'reputation', target: 70, deadlineWeek: 12 },
+      { id: 'district_unlock', label: 'Reach district tier', metric: 'districtTier', target: 2, deadlineWeek: 12 }
+    ],
+    failure: { maxDebt: -30000, minReputation: 5, stressWeek: 4 }
+  },
+  sports_performance: {
+    id: 'sports_performance',
+    name: 'Sports Performance Hub',
+    description: 'Scale high-outcome athlete pathways while maintaining throughput and reputation.',
+    startCash: 24000,
+    startReputation: 47,
+    startReferrals: 15,
+    rent: 860,
+    equipmentCost: 165,
+    startingLoanOffer: 12000,
+    demandMixBias: { athlete: 0.18, postOp: 0.12 },
+    objectives: [
+      { id: 'quality_bar', label: 'Sustain high outcomes', metric: 'avgOutcome', target: 0.66, deadlineWeek: 10 },
+      { id: 'caseload_growth', label: 'Scale treated caseload', metric: 'attendedVisits', target: 240, deadlineWeek: 12 },
+      { id: 'service_mix', label: 'Deliver broad service mix', metric: 'serviceDiversity', target: 6, deadlineWeek: 12, optional: true }
+    ],
+    failure: { maxDebt: -28000, minReputation: 10, stressWeek: 5 }
+  },
+  insurance_crunch: {
+    id: 'insurance_crunch',
+    name: 'Insurance Crunch',
+    description: 'Tighter payer margins force careful financing and disciplined operations.',
+    startCash: 17000,
+    startReputation: 43,
+    startReferrals: 14,
+    rent: 830,
+    equipmentCost: 170,
+    startingLoanOffer: 15000,
+    demandMixBias: { workersComp: 0.2, chronicPain: 0.14 },
+    objectives: [
+      { id: 'loan_clear', label: 'Exit debt financing', metric: 'loanCleared', target: 1, deadlineWeek: 11 },
+      { id: 'rep_stability', label: 'Maintain market confidence', metric: 'reputation', target: 68, deadlineWeek: 12 },
+      { id: 'district_unlock', label: 'Secure district expansion rights', metric: 'districtTier', target: 2, deadlineWeek: 12 }
+    ],
+    failure: { maxDebt: -32000, minReputation: 8, stressWeek: 4 }
+  }
+};
+
+export const DEFAULT_SCENARIO_ID: ScenarioId = 'community_rebuild';
+
+export const REPUTATION_TIERS: ReputationTier[] = [
+  { id: 'local', threshold: 40, grant: 0, unlockServices: [], unlockUpgrades: [] },
+  { id: 'district', threshold: 60, grant: 3500, unlockServices: ['premiumAssessment'], unlockUpgrades: ['advanced_certification'] },
+  { id: 'city', threshold: 78, grant: 6000, unlockServices: ['vestibularProgram'], unlockUpgrades: ['vestibular_suite'] }
 ];
 
 export const SIMULATION_BALANCE: SimulationBalance = {

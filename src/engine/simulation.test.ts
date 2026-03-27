@@ -62,19 +62,15 @@ describe('simulation core loop', () => {
   });
 
   it('campaign success condition can trigger', () => {
-    const state = createInitialState('campaign');
+    const state = createInitialState('campaign', 'community_rebuild', 'standard');
     const boosted = {
       ...state,
       day: 6,
-      week: state.campaignGoal.targetWeek - 1,
+      week: state.campaignGoal.targetWeek,
       reputation: 100,
       cash: 1_000_000,
-      campaignGoal: {
-        ...state.campaignGoal,
-        targetWeek: state.campaignGoal.targetWeek,
-        targetReputation: 90,
-        targetCash: 900_000
-      }
+      districtTier: 3,
+      objectiveProgress: state.objectiveProgress.map((objective) => ({ ...objective, completed: true, completedWeek: 5 }))
     };
     const next = runDay(boosted);
     expect(next.gameWon).toBe(true);

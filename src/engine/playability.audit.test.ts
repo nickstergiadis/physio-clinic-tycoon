@@ -67,7 +67,8 @@ describe('playability go-live audit flow', () => {
     const failState = {
       ...createInitialState('campaign'),
       day: 21,
-      cash: -30000
+      week: 6,
+      cash: -35000
     };
     const failed = runDay(failState);
     expect(failed.gameOver).toBe(true);
@@ -75,9 +76,11 @@ describe('playability go-live audit flow', () => {
     const winState = {
       ...createInitialState('campaign'),
       day: 84,
-      week: 14,
+      week: 12,
       cash: 54000,
-      reputation: 80
+      reputation: 80,
+      districtTier: 3,
+      objectiveProgress: createInitialState('campaign').objectiveProgress.map((objective) => ({ ...objective, completed: true, completedWeek: 8 }))
     };
     const won = runDay(winState);
     expect(won.gameWon).toBe(true);

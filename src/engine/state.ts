@@ -1,5 +1,6 @@
-import { SAVE_VERSION } from '../data/content';
-import { GameMode, GameState, PatientArchetypeId, StaffMember, StaffRoleId, StaffTraitId } from '../types/game';
+import { DEFAULT_SCENARIO_ID, SAVE_VERSION } from '../data/content';
+import { DifficultyPresetId, GameMode, GameState, PatientArchetypeId, ScenarioId, StaffMember, StaffRoleId, StaffTraitId } from '../types/game';
+import { getScenario } from './campaign';
 import { uid } from './utils';
 
 const makeStaff = (role: StaffRoleId, name: string, wage: number, trait: StaffTraitId, specialtyFocus: PatientArchetypeId): StaffMember => ({
@@ -26,19 +27,23 @@ const makeStaff = (role: StaffRoleId, name: string, wage: number, trait: StaffTr
   burnoutRisk: 0.12
 });
 
-export const createInitialState = (mode: GameMode): GameState => ({
+export const createInitialState = (mode: GameMode, scenarioId: ScenarioId = DEFAULT_SCENARIO_ID, difficultyPreset?: DifficultyPresetId): GameState => {
+  const scenario = getScenario(scenarioId);
+  const resolvedDifficulty = difficultyPreset ?? (mode === 'sandbox' ? 'relaxed' : 'standard');
+
+  return ({
   version: SAVE_VERSION,
   seed: Date.now() % 100000,
   mode,
-  scenarioId: 'default',
-  difficultyPreset: mode === 'sandbox' ? 'relaxed' : 'standard',
+  scenarioId,
+  difficultyPreset: resolvedDifficulty,
   day: 1,
   week: 1,
-  cash: mode === 'sandbox' ? 50000 : 22000,
-  reputation: mode === 'sandbox' ? 50 : 45,
-  referrals: mode === 'sandbox' ? 18 : 14,
-  rent: mode === 'sandbox' ? 760 : 820,
-  equipmentCost: mode === 'sandbox' ? 120 : 150,
+  cash: mode === 'sandbox' ? 50000 : scenario.startCash,
+  reputation: mode === 'sandbox' ? 50 : scenario.startReputation,
+  referrals: mode === 'sandbox' ? 18 : scenario.startReferrals,
+  rent: mode === 'sandbox' ? 760 : scenario.rent,
+  equipmentCost: mode === 'sandbox' ? 120 : scenario.equipmentCost,
   payrollDue: 0,
   clinicSize: 4,
   maxClinicSize: 6,
@@ -92,13 +97,22 @@ export const createInitialState = (mode: GameMode): GameState => ({
   latestSummary: undefined,
   eventLog: ['Welcome to Physiotherapy Clinic Tycoon.'],
   campaignGoal: {
-    targetWeek: 14,
-    targetReputation: 75,
-    targetCash: 50000
+    targetWeek: mode === 'sandbox' ? 0 : Math.max(...scenario.objectives.map((objective) => objective.deadlineWeek)),
+    targetReputation: mode === 'sandbox' ? 0 : 70,
+    targetCash: mode === 'sandbox' ? 0 : 50000
+  },
+  objectiveProgress: mode === 'sandbox' ? [] : scenario.objectives.map((objective) => ({ objectiveId: objective.id, completed: false })),
+  districtTier: 1,
+  unlockedTierRewards: ['tier_local'],
+  loan: null,
+  lifetimeStats: {
+    attendedVisits: 0,
+    avgOutcomeRolling: 0
   },
   settings: {
     soundEnabled: true,
     ambientEnabled: false,
     showTutorialHints: true
   }
-});
+  });
+};
