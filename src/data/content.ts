@@ -140,7 +140,7 @@ export const STAFF_TEMPLATES: StaffTemplate[] = [
   {
     id: 'physio',
     name: 'Physiotherapist',
-    baseWage: 390,
+    baseWage: 360,
     hireCost: 2200,
     speed: 0.7,
     quality: 0.78,
@@ -190,8 +190,8 @@ export const STAFF_TEMPLATES: StaffTemplate[] = [
 export const ROOM_DEFS: RoomDefinition[] = [
   { id: 'reception', name: 'Reception', cost: 1600, maintenance: 45, throughputBonus: 0.09, satisfactionBonus: 0.04 },
   { id: 'waiting', name: 'Waiting Area', cost: 780, maintenance: 20, throughputBonus: 0.05, satisfactionBonus: 0.08 },
-  { id: 'treatment', name: 'Treatment Room', cost: 2050, maintenance: 62, throughputBonus: 0.16, satisfactionBonus: 0.05 },
-  { id: 'gym', name: 'Rehab Gym', cost: 2550, maintenance: 75, throughputBonus: 0.18, satisfactionBonus: 0.07 },
+  { id: 'treatment', name: 'Treatment Room', cost: 1825, maintenance: 58, throughputBonus: 0.16, satisfactionBonus: 0.05 },
+  { id: 'gym', name: 'Rehab Gym', cost: 2300, maintenance: 70, throughputBonus: 0.18, satisfactionBonus: 0.07 },
   {
     id: 'vestibularLab',
     name: 'Vestibular Lab',
@@ -229,7 +229,7 @@ export const UPGRADES: UpgradeDefinition[] = [
   { id: 'online_booking', name: 'Online Booking Portal', cost: 2200, description: 'Reduce no-shows and improve referrals.', effects: { noShowReduction: 0.12, referralMult: 0.08 } },
   { id: 'community_marketing', name: 'Community Sports Marketing', cost: 3200, description: 'Improve referral pipeline and brand awareness.', effects: { referralMult: 0.16 } },
   { id: 'staff_wellness', name: 'Staff Wellness Program', cost: 2550, description: 'Boost morale and burnout resilience.', effects: { moraleGain: 10 } },
-  { id: 'premium_branding', name: 'Premium Clinic Branding', cost: 3800, description: 'Increase pricing power and perceived quality.', effects: { premiumPricing: 0.12, qualityBonus: 0.05 } },
+  { id: 'premium_branding', name: 'Premium Clinic Branding', cost: 3800, description: 'Increase pricing power and perceived quality.', effects: { premiumPricing: 0.08, qualityBonus: 0.05 } },
   { id: 'clinic_expansion_i', name: 'Lease Expansion I', cost: 4500, description: 'Increase layout capacity.', effects: { maxClinicSize: 8 } },
   { id: 'clinic_expansion_ii', name: 'Lease Expansion II', cost: 8600, description: 'Increase layout capacity further.', effects: { maxClinicSize: 12 } },
   { id: 'vestibular_suite', name: 'Vestibular Suite Certification', cost: 5700, description: 'Unlock vestibular lab and services.', effects: { unlockRooms: ['vestibularLab'], unlockServices: ['vestibularProgram'] } },
@@ -305,7 +305,7 @@ export const CAMPAIGN_SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
     demandMixBias: { athlete: 0.18, postOp: 0.12 },
     objectives: [
       { id: 'quality_bar', label: 'Sustain high outcomes', metric: 'avgOutcome', target: 0.66, deadlineWeek: 10 },
-      { id: 'caseload_growth', label: 'Scale treated caseload', metric: 'attendedVisits', target: 240, deadlineWeek: 12 },
+      { id: 'caseload_growth', label: 'Scale treated caseload', metric: 'attendedVisits', target: 225, deadlineWeek: 12 },
       { id: 'service_mix', label: 'Deliver broad service mix', metric: 'serviceDiversity', target: 6, deadlineWeek: 12, optional: true }
     ],
     failure: { maxDebt: -28000, minReputation: 10, stressWeek: 5 }
@@ -323,7 +323,7 @@ export const CAMPAIGN_SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
     demandMixBias: { workersComp: 0.2, chronicPain: 0.14 },
     objectives: [
       { id: 'loan_clear', label: 'Exit debt financing', metric: 'loanCleared', target: 1, deadlineWeek: 11 },
-      { id: 'rep_stability', label: 'Maintain market confidence', metric: 'reputation', target: 68, deadlineWeek: 12 },
+      { id: 'rep_stability', label: 'Maintain market confidence', metric: 'reputation', target: 66, deadlineWeek: 12 },
       { id: 'district_unlock', label: 'Secure district expansion rights', metric: 'districtTier', target: 2, deadlineWeek: 12 }
     ],
     failure: { maxDebt: -32000, minReputation: 8, stressWeek: 4 }
@@ -344,9 +344,9 @@ export const SIMULATION_BALANCE: SimulationBalance = {
   referralsToDemand: 0.8,
   reputationToDemand: 0.1,
   uninsuredThreshold: 0.35,
-  capacityPerStaff: 5.4,
+  capacityPerStaff: 4.4,
   fatigueCapacityDivisor: 200,
-  roomThroughputUnit: 6,
+  roomThroughputUnit: 5,
   overcrowdThreshold: 4,
   overcrowdPenalty: 0.8,
   baseNoShowBuffer: 0.015,
@@ -362,8 +362,8 @@ export const SIMULATION_BALANCE: SimulationBalance = {
   selfPayRevenueMultiplier: 1.12,
   adminReductionWeight: 1.1,
   documentationThroughput: 2.8,
-  docsPenaltyThreshold: 11,
-  docsPenaltyUnit: 14,
+  docsPenaltyThreshold: 10,
+  docsPenaltyUnit: 15,
   dailyFatigueRecovery: 10,
   lowResistanceRecoveryPenalty: 1.8
 };

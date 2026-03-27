@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
-import { buyUpgrade, hireStaff, placeRoom, runDay } from './simulation';
+import { buyUpgrade, hireStaff, placeRoom, runDay, takeLoan } from './simulation';
 import { createInitialState } from './state';
 import { deleteSlot, loadSlots, saveSlot } from './persistence';
 
@@ -100,5 +100,26 @@ describe('playability go-live audit flow', () => {
     expect(loaded?.scenarioId).toBe('sports_performance');
     expect(loaded?.selectedTab).toBe('finance');
     expect(loaded?.latestSummary?.day).toBe(2);
+  });
+
+  it('keeps bad-then-corrected early decisions recoverable in campaign', () => {
+    let state = { ...createInitialState('campaign', 'insurance_crunch', 'standard'), seed: 5151 };
+
+    state = hireStaff(state, 'specialist');
+    state = placeRoom(state, 'treatment', 2, 2);
+    state = runDay(state);
+    state = runDay(state);
+
+    const stressedCash = state.cash;
+    state = takeLoan(state, 6000);
+    state = buyUpgrade(state, 'online_booking');
+    state = buyUpgrade(state, 'ehr_automation');
+
+    for (let i = 0; i < 14; i += 1) state = runDay(state);
+
+    expect(stressedCash).toBeLessThan(createInitialState('campaign', 'insurance_crunch', 'standard').cash);
+    expect(state.gameOver).toBe(false);
+    expect((state.latestSummary?.profit ?? -5000)).toBeGreaterThan(-1200);
+    expect((state.latestSummary?.lostDemand.noShows ?? 99)).toBeLessThan(5);
   });
 });

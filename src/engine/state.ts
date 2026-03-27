@@ -56,7 +56,7 @@ export const createInitialState = (mode: GameMode, scenarioId: ScenarioId = DEFA
   unlockedRooms: ['reception', 'waiting', 'treatment', 'gym'],
   unlockedServices: ['initialAssessment', 'followUp', 'exerciseSession', 'groupClass', 'postOpPathway'],
   staff: [
-    makeStaff('physio', 'Alex Morgan', 390, 'steady', 'postOp'),
+    makeStaff('physio', 'Alex Morgan', 360, 'steady', 'postOp'),
     makeStaff('frontDesk', 'Jordan Lee', 170, 'empathetic', 'workersComp'),
     makeStaff('assistant', 'Sam Patel', 205, 'resilient', 'olderAdult')
   ],
