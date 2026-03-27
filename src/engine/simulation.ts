@@ -71,13 +71,20 @@ export const setStaffShift = (state: GameState, staffId: string, shift: 'off' | 
 
 export const assignStaffRoom = (state: GameState, staffId: string, roomType: RoomTypeId | 'flex'): GameState => ({
   ...state,
-  staff: state.staff.map((s) => (s.uid === staffId ? { ...s, assignedRoom: roomType } : s))
+  staff: state.staff.map((s) => {
+    if (s.uid !== staffId) return s;
+    if (roomType !== 'flex' && !state.rooms.some((room) => room.type === roomType)) return s;
+    if (s.role === 'frontDesk' && roomType !== 'flex' && roomType !== 'reception') return s;
+    return { ...s, assignedRoom: roomType };
+  })
 });
 
 export const startStaffTraining = (state: GameState, staffId: string): GameState => {
   const member = state.staff.find((s) => s.uid === staffId);
-  if (!member || member.trainingDaysRemaining > 0 || state.cash < 900) return state;
-  const service = randomPick(SERVICES.filter(() => member.role !== 'frontDesk').map((s) => s.id));
+  if (!member || member.role === 'frontDesk' || member.trainingDaysRemaining > 0 || state.cash < 900) return state;
+  const servicePool = SERVICES.map((s) => s.id);
+  if (servicePool.length === 0) return state;
+  const service = randomPick(servicePool);
   return {
     ...state,
     cash: state.cash - 900,
