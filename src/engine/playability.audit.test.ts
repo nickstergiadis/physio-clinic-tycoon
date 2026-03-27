@@ -85,4 +85,20 @@ describe('playability go-live audit flow', () => {
     const won = runDay(winState);
     expect(won.gameWon).toBe(true);
   });
+
+  it('keeps scenario start, save-load, and tab state transitions stable', () => {
+    let state = createInitialState('campaign', 'sports_performance', 'hardcore');
+    expect(state.scenarioId).toBe('sports_performance');
+    expect(state.selectedTab).toBe('overview');
+
+    state = { ...state, selectedTab: 'finance' };
+    state = runDay(state);
+    saveSlot('slot-2', 'tab-regression', state);
+
+    const loaded = loadSlots().find((slot) => slot.id === 'slot-2')?.state;
+    expect(loaded).toBeDefined();
+    expect(loaded?.scenarioId).toBe('sports_performance');
+    expect(loaded?.selectedTab).toBe('finance');
+    expect(loaded?.latestSummary?.day).toBe(2);
+  });
 });

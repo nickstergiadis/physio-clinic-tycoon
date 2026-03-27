@@ -20,8 +20,17 @@ import { deleteSlot, loadSettings, loadSlots, saveSettings, saveSlot } from '../
 import { createInitialState } from '../engine/state';
 import { DaySummary, DifficultyPresetId, GameMode, GameState, RoomTypeId, SaveSlot, ScenarioId, Screen, ServiceId, StaffRoleId } from '../types/game';
 import { objectiveStatus } from '../engine/campaign';
+import { formatSignedCurrency, getClinicDrivers, getDemandPressure, getFinanceSnapshot, getStaffInsights } from './dashboard';
 
 const tabs: GameState['selectedTab'][] = ['overview', 'build', 'staff', 'patients', 'finance', 'upgrades'];
+const TAB_HELP: Record<GameState['selectedTab'], string> = {
+  overview: 'Read yesterday’s results and top drivers before making new investments.',
+  build: 'Expand only where bottlenecks exist; new rooms without staff rarely pay back quickly.',
+  staff: 'Use shifts + room assignment to reduce bottlenecks before hiring aggressively.',
+  patients: 'Track funnel leakage and target upgrades that reduce your largest lost-demand category.',
+  finance: 'Watch runway and breakeven gap; protect 2+ weeks runway when possible.',
+  upgrades: 'Buy upgrades that solve a concrete issue first (docs, no-shows, or room unlocks).'
+};
 
 const ROLE_LABELS: Record<StaffRoleId, string> = {
   physio: 'Physio',
@@ -292,8 +301,10 @@ export function App() {
 
   const clinicianScheduled = state.staff.some((s) => s.scheduled && (s.role === 'physio' || s.role === 'assistant' || s.role === 'specialist'));
   const emptyTiles = state.maxClinicSize - state.rooms.length;
-  const docsPenaltyEstimate = state.backlogDocs > 11 ? Math.round((state.backlogDocs - 11) * 14) : 0;
-  const lowRunway = state.cash > 0 ? Math.round(state.cash / Math.max(1, state.payrollDue)) : 0;
+  const financeSnapshot = getFinanceSnapshot(state);
+  const staffInsights = getStaffInsights(state);
+  const demandPressure = getDemandPressure(state.latestSummary);
+  const clinicDrivers = getClinicDrivers(state);
 
   const alerts: string[] = [];
   if (!clinicianScheduled) alerts.push('No clinician is scheduled. You will treat 0 patients.');
@@ -341,6 +352,7 @@ export function App() {
           </button>
         ))}
       </nav>
+      <div className="tab-helper">{TAB_HELP[state.selectedTab]}</div>
 
       <main className="content">
         {state.selectedTab === 'overview' && (
@@ -363,7 +375,7 @@ export function App() {
               {state.latestSummary && (
                 <div className="summary-box">
                   <h4>End-of-Day Feedback</h4>
-                  <p>Revenue ${state.latestSummary.revenue} · Expenses ${state.latestSummary.expenses} · Profit ${state.latestSummary.profit}</p>
+                  <p>Revenue ${state.latestSummary.revenue} · Expenses ${state.latestSummary.expenses} · Profit {formatSignedCurrency(state.latestSummary.profit)}</p>
                   <p>Leads {state.latestSummary.inboundLeads} → Booked {state.latestSummary.bookedVisits} → Attended {state.latestSummary.attendedVisits} ({state.latestSummary.utilization.toFixed(1)}% utilization)</p>
                   <p>Lost: unbooked {state.latestSummary.lostDemand.unbooked}, capacity {state.latestSummary.lostDemand.capacity}, cancellations {state.latestSummary.lostDemand.cancellations}, no-shows {state.latestSummary.lostDemand.noShows}</p>
                   <p>Bottlenecks: staff {state.latestSummary.bottlenecks.staffing}, rooms {state.latestSummary.bottlenecks.room}, equipment {state.latestSummary.bottlenecks.equipment}, burnout pressure {state.latestSummary.bottlenecks.burnout}</p>
@@ -376,6 +388,15 @@ export function App() {
               )}
             </article>
             <article className="card">
+              <h3>Why you are winning / struggling</h3>
+              <div className="insight-list">
+                {clinicDrivers.map((driver) => (
+                  <div key={driver.label} className={`insight-row tone-${driver.tone}`}>
+                    <strong>{driver.label}</strong>
+                    <small>{driver.detail}</small>
+                  </div>
+                ))}
+              </div>
               <h3>Event Log</h3>
               <ul>
                 {state.eventLog.length === 0 && <li>No events recorded yet.</li>}
@@ -493,6 +514,14 @@ export function App() {
           <section className="grid-2">
             <article className="card">
               <h3>Team</h3>
+              <div className="mini-metrics">
+                {staffInsights.map((insight) => (
+                  <div key={insight.label} className={`mini-metric tone-${insight.tone}`}>
+                    <strong>{insight.label}</strong>
+                    <span>{insight.value}</span>
+                  </div>
+                ))}
+              </div>
               {state.staff.map((s) => (
                 <div key={s.uid} className="row card compact">
                   <div>
@@ -549,6 +578,14 @@ export function App() {
         {state.selectedTab === 'patients' && (
           <section className="card">
             <h3>Caseload & Demand Quality</h3>
+            <div className="mini-metrics">
+              {demandPressure.map((item) => (
+                <div key={item.label} className={`mini-metric tone-${item.tone}`}>
+                  <strong>{item.label}</strong>
+                  <span>{item.value}</span>
+                </div>
+              ))}
+            </div>
             <p>Current booked queue: {state.patientQueue.length}</p>
             {state.patientQueue.length === 0 && <p>No patient queue yet. Run a day to generate demand.</p>}
             {state.patientQueue.length > 0 && (
@@ -575,12 +612,16 @@ export function App() {
         {state.selectedTab === 'finance' && (
           <section className="grid-2">
             <article className="card">
-              <h3>Finance</h3>
+              <h3>Finance Command Center</h3>
               <p>Cash: ${Math.round(state.cash)}</p>
               <p>Weekly fixed costs due: ${Math.round(state.payrollDue)}</p>
               <p>Rent/day: ${state.rent} · Equipment/day: ${state.equipmentCost}</p>
-              <p>Docs penalty estimate today: ${docsPenaltyEstimate} (variable cost)</p>
-              <p>Runway vs fixed liabilities: {lowRunway} week(s)</p>
+              <p>Docs penalty estimate today: ${financeSnapshot.docsPenaltyEstimate} (variable cost)</p>
+              <p>Runway vs fixed liabilities: {financeSnapshot.runwayWeeks.toFixed(1)} week(s)</p>
+              <div className="summary-box">
+                <p>Margin (latest day): {financeSnapshot.marginPct.toFixed(1)}%</p>
+                <p>Breakeven gap: {formatSignedCurrency(financeSnapshot.breakevenGap)} (revenue - variable - daily fixed)</p>
+              </div>
               {state.loan && (
                 <>
                   <p>Loan principal: ${Math.round(state.loan.principal)} · weekly payment: ${Math.round(state.loan.weeklyPayment)} · weeks left: {state.loan.weeksRemaining}</p>
@@ -598,13 +639,14 @@ export function App() {
               )}
             </article>
             <article className="card">
-              <h3>Risk Flags</h3>
+              <h3>Risk Flags & Next Action</h3>
               <ul>
                 <li>{state.cash < 0 ? '⚠ Negative cashflow' : '✅ Solvent'}</li>
                 <li>{state.fatigueIndex > 0.7 ? '⚠ Burnout risk high' : '✅ Burnout manageable'}</li>
                 <li>{state.backlogDocs > 10 ? '⚠ Documentation backlog critical' : '✅ Documentation under control'}</li>
                 <li>{state.reputation < 20 ? '⚠ Reputation fragile' : '✅ Reputation stable'}</li>
               </ul>
+              <p><strong>Suggested move:</strong> {alerts[0] ?? 'No urgent threats. Expand capacity or improve patient mix.'}</p>
               {alerts.length > 1 && (
                 <div className="hint-box">
                   <strong>Immediate actions:</strong>
