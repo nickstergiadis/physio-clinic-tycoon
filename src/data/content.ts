@@ -4,6 +4,7 @@ import {
   ScenarioDefinition,
   ScenarioId,
   RoomDefinition,
+  BuildItemDefinition,
   ReputationTier,
   SimulationBalance,
   ServiceDefinition,
@@ -11,7 +12,7 @@ import {
   UpgradeDefinition
 } from '../types/game';
 
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 export const PATIENT_ARCHETYPES: PatientArchetype[] = [
   {
@@ -209,6 +210,79 @@ export const ROOM_DEFS: RoomDefinition[] = [
     throughputBonus: 0.12,
     satisfactionBonus: 0.12,
     requiredUpgrade: 'hydro_program'
+  }
+];
+
+export const BUILD_ITEMS: BuildItemDefinition[] = [
+  {
+    id: 'waiting_chairs',
+    name: 'Waiting Chairs',
+    category: 'waiting',
+    cost: 180,
+    maintenance: 5,
+    description: 'Adds seating comfort to reduce perceived wait stress in busy periods.',
+    placement: { roomTypes: ['waiting'], maxPerTile: 2 },
+    effects: { waitingComfort: 0.025 }
+  },
+  {
+    id: 'wayfinding_sign',
+    name: 'Wayfinding Signage',
+    category: 'wayfinding',
+    cost: 130,
+    maintenance: 2,
+    description: 'Improves navigation so patients reach the right zone faster.',
+    placement: { allowOnPath: true, allowOnEmpty: true, requiresAdjacentRoomTypes: ['reception', 'waiting', 'treatment', 'gym'] },
+    effects: { wayfinding: 0.03 }
+  },
+  {
+    id: 'front_desk_pod',
+    name: 'Front-Desk Pod',
+    category: 'frontDesk',
+    cost: 520,
+    maintenance: 10,
+    description: 'Upgraded desk hardware improves admin throughput and check-in quality.',
+    placement: { roomTypes: ['reception'], maxPerTile: 1 },
+    effects: { adminEfficiency: 0.06, wayfinding: 0.01 }
+  },
+  {
+    id: 'decor_plant',
+    name: 'Decor Set',
+    category: 'decor',
+    cost: 95,
+    maintenance: 3,
+    description: 'Low-cost ambience improvement that nudges comfort and morale.',
+    placement: { roomTypes: ['reception', 'waiting', 'treatment', 'gym', 'vestibularLab', 'hydro'], maxPerTile: 2 },
+    effects: { waitingComfort: 0.012, moraleRecovery: 0.012 }
+  },
+  {
+    id: 'rehab_station',
+    name: 'Rehab Station',
+    category: 'rehab',
+    cost: 760,
+    maintenance: 18,
+    description: 'Extra station capacity improves treatment quality for equipment-heavy programs.',
+    placement: { roomTypes: ['gym', 'treatment', 'vestibularLab', 'hydro'], maxPerTile: 1 },
+    effects: { treatmentQuality: 0.065 }
+  },
+  {
+    id: 'storage_wall',
+    name: 'Admin / Storage Wall',
+    category: 'admin',
+    cost: 360,
+    maintenance: 8,
+    description: 'Document + supply storage reduces friction between sessions.',
+    placement: { roomTypes: ['reception', 'treatment', 'gym'], maxPerTile: 1 },
+    effects: { adminEfficiency: 0.045, treatmentQuality: 0.01 }
+  },
+  {
+    id: 'breakroom_corner',
+    name: 'Break-Room Corner',
+    category: 'breakroom',
+    cost: 460,
+    maintenance: 10,
+    description: 'Dedicated recovery nook improves morale and fatigue recovery over time.',
+    placement: { roomTypes: ['reception', 'waiting'], maxPerTile: 1, requiresAdjacentRoomTypes: ['treatment', 'gym'] },
+    effects: { moraleRecovery: 0.07 }
   }
 ];
 

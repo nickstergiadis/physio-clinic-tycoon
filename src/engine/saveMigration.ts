@@ -63,6 +63,13 @@ export const migrateStateByVersion = (state: Partial<GameState>, fromVersion: nu
     };
   }
 
+  if (fromVersion < 9) {
+    return {
+      ...state,
+      placedItems: state.placedItems ?? undefined
+    };
+  }
+
   return state;
 };
 
@@ -97,6 +104,15 @@ export const sanitizeState = (state: GameState): GameState => {
           focusService: room.focusService ?? 'general'
         }))
       : base.rooms,
+    placedItems: Array.isArray(migrated.placedItems)
+      ? migrated.placedItems
+          .filter((item) => typeof item?.itemId === 'string' && typeof item?.x === 'number' && typeof item?.y === 'number')
+          .map((item, idx) => ({
+            ...base.placedItems[idx % Math.max(1, base.placedItems.length)],
+            ...item,
+            id: item.id ?? `${item.itemId}-${item.x}-${item.y}-${idx}`
+          }))
+      : base.placedItems,
     pathTiles: Array.isArray(migrated.pathTiles)
       ? migrated.pathTiles.filter((tile) => typeof tile?.x === 'number' && typeof tile?.y === 'number').map((tile) => ({ x: tile.x, y: tile.y }))
       : base.pathTiles,

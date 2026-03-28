@@ -1,8 +1,9 @@
 import { PATIENT_ARCHETYPES, ROOM_DEFS, SERVICES, STAFF_TEMPLATES, UPGRADES } from '../data/content';
-import { BookingPolicy, GameState, RoomTypeId, ServiceId, StaffMember, StaffRoleId, StaffTraitId } from '../types/game';
+import { BookingPolicy, BuildItemId, GameState, RoomTypeId, ServiceId, StaffMember, StaffRoleId, StaffTraitId } from '../types/game';
 import { uid } from './utils';
 import { generatePatients, runDay } from './daySimulation';
 import { getDifficultyPreset } from './simulationConfig';
+import { getBuildItemDef, getBuildItemPlacementError } from './buildItems';
 
 export { generatePatients, runDay };
 const STAFF_TRAITS: StaffTraitId[] = ['steady', 'empathetic', 'fastLearner', 'resilient', 'specialistMindset'];
@@ -162,7 +163,37 @@ export const setRoomFocus = (state: GameState, roomId: string, serviceId: Servic
 export const removeRoom = (state: GameState, roomId: string): GameState => {
   const room = state.rooms.find((r) => r.id === roomId);
   if (!room || (['reception', 'waiting', 'treatment', 'gym'].includes(room.type) && state.rooms.filter((r) => r.type === room.type).length <= 1)) return state;
-  return { ...state, rooms: state.rooms.filter((r) => r.id !== roomId), clinicSize: Math.max(1, state.clinicSize - 1) };
+  return {
+    ...state,
+    rooms: state.rooms.filter((r) => r.id !== roomId),
+    placedItems: state.placedItems.filter((item) => item.x !== room.x || item.y !== room.y),
+    clinicSize: Math.max(1, state.clinicSize - 1)
+  };
+};
+
+export const placeBuildItem = (state: GameState, itemId: BuildItemId, x: number, y: number): GameState => {
+  const def = getBuildItemDef(itemId);
+  if (!def) return state;
+  const placementError = getBuildItemPlacementError(state, itemId, x, y);
+  if (placementError || state.cash < def.cost) return state;
+
+  return {
+    ...state,
+    cash: state.cash - def.cost,
+    placedItems: [...state.placedItems, { id: uid(), itemId, x, y }],
+    eventLog: [`Placed ${def.name}.`, ...state.eventLog].slice(0, 12)
+  };
+};
+
+export const removeBuildItem = (state: GameState, itemInstanceId: string): GameState => {
+  const item = state.placedItems.find((placed) => placed.id === itemInstanceId);
+  if (!item) return state;
+  const def = getBuildItemDef(item.itemId);
+  return {
+    ...state,
+    placedItems: state.placedItems.filter((placed) => placed.id !== itemInstanceId),
+    eventLog: [`Removed ${def?.name ?? item.itemId}.`, ...state.eventLog].slice(0, 12)
+  };
 };
 
 export const takeLoan = (state: GameState, principal: number): GameState => {
