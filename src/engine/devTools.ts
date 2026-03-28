@@ -2,6 +2,7 @@ import { PATIENT_ARCHETYPES } from '../data/content';
 import { GameState } from '../types/game';
 import { runDay } from './daySimulation';
 import { uid } from './utils';
+import { DAY_START_MINUTE } from './queueManagement';
 
 export const DEV_HIGH_NO_SHOW_SHIFT = 0.2;
 
@@ -49,6 +50,10 @@ export const spawnSamplePatients = (state: GameState, count = 8): GameState => {
         service,
         complexity: archetype.complexity,
         insured: idx % 2 === 0,
+        scheduledSlot: idx,
+        scheduledMinute: DAY_START_MINUTE + idx * 15,
+        expectedDuration: 30,
+        arrivalOffsetMinutes: 0,
         status: 'waiting' as const
       }
     };

@@ -3,6 +3,7 @@ import { GameState, PatientVisit } from '../types/game';
 import { BALANCE } from './simulationConfig';
 import { rand, uid } from './utils';
 import { weightedArchetype } from './demandGeneration';
+import { allocateAppointmentSlots } from './queueManagement';
 
 const unlockedServiceSet = (state: GameState): Set<string> => new Set(state.unlockedServices);
 
@@ -42,9 +43,13 @@ export const generateAppointments = (state: GameState, leads: number, bookingRat
       service: resolvedService,
       complexity: archetype.complexity,
       insured: rand(seed + 7) > BALANCE.uninsuredThreshold,
+      scheduledSlot: 0,
+      scheduledMinute: state.day * 24 * 60,
+      expectedDuration: 30,
+      arrivalOffsetMinutes: 0,
       status: 'waiting'
     });
   }
 
-  return { booked, lostUnbooked, lostServiceMismatch };
+  return { booked: allocateAppointmentSlots(state, booked), lostUnbooked, lostServiceMismatch };
 };

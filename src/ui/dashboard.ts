@@ -55,6 +55,8 @@ export const getClinicDrivers = (state: GameState): MetricDriver[] => {
   else drivers.push({ label: 'Lead conversion healthy', detail: `${pct(conversion)} of leads become bookings.`, tone: 'positive' });
 
   if (attendance < 0.8) drivers.push({ label: 'Attendance leakage', detail: `${pct(attendance)} of bookings attended; no-shows/cancellations are costly.`, tone: 'negative' });
+  if (state.latestSchedule.spilloverMinutes > 20) drivers.push({ label: 'Queue spillover', detail: `${state.latestSchedule.spilloverMinutes} min overtime from delays/overruns.`, tone: 'negative' });
+  if (state.latestSchedule.unusedGaps > 10) drivers.push({ label: 'Unused schedule gaps', detail: `${state.latestSchedule.unusedGaps} slots idle yesterday.`, tone: 'neutral' });
   if (latest.utilization > 92) drivers.push({ label: 'Clinic near capacity', detail: `Utilization ${latest.utilization.toFixed(0)}%: room/staff expansion can unlock growth.`, tone: 'neutral' });
   if (state.fatigueIndex > 0.75) drivers.push({ label: 'Fatigue threatens quality', detail: `Fatigue index ${(state.fatigueIndex * 100).toFixed(0)}%. Rotate shifts or train.`, tone: 'negative' });
 

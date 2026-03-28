@@ -15,12 +15,13 @@ import {
   toggleStaffSchedule,
   upgradeRoomEquipment,
   repayLoan,
-  togglePathTile
+  togglePathTile,
+  setBookingPolicy
 } from '../engine/simulation';
 import { deleteSlot, loadSettings, loadSlots, saveSettings, saveSlot } from '../engine/persistence';
 import { addCash, fastForwardDays, setHighNoShowMode, spawnSamplePatients } from '../engine/devTools';
 import { createInitialState } from '../engine/state';
-import { DaySummary, DifficultyPresetId, GameMode, GameState, RoomTypeId, SaveSlot, ScenarioId, Screen, ServiceId, StaffRoleId } from '../types/game';
+import { BookingPolicy, DaySummary, DifficultyPresetId, GameMode, GameState, RoomTypeId, SaveSlot, ScenarioId, Screen, ServiceId, StaffRoleId } from '../types/game';
 import { objectiveStatus } from '../engine/campaign';
 import { formatSignedCurrency, getClinicDrivers, getDemandPressure, getFinanceSnapshot, getStaffInsights } from './dashboard';
 
@@ -76,6 +77,12 @@ const inferFailureReasons = (state: GameState) => {
 
 const getDayMessage = (summary: DaySummary) =>
   `Day ${summary.day}: Leads ${summary.inboundLeads} → Booked ${summary.bookedVisits} → Attended ${summary.attendedVisits} · Profit $${summary.profit}`;
+
+const POLICY_LABELS: Record<BookingPolicy, string> = {
+  conservative: 'Conservative',
+  balanced: 'Balanced',
+  aggressive: 'Aggressive (Overbooked)'
+};
 
 export function App() {
   const [screen, setScreen] = useState<Screen>('menu');
@@ -380,6 +387,7 @@ export function App() {
               <p>Rooms: {state.rooms.length}/{state.maxClinicSize}</p>
               <p>Staff scheduled: {state.staff.filter((s) => s.scheduled).length}/{state.staff.length}</p>
               <p>Booked visits in pipeline: {state.patientQueue.length}</p>
+              <p>Booking policy: <strong>{POLICY_LABELS[state.bookingPolicy]}</strong></p>
               <p>Utilization (latest day): {state.demandSnapshot.utilization.toFixed(1)}%</p>
               {!clinicianScheduled && <p className="warn">⚠ No clinician scheduled. Patients cannot be treated.</p>}
               {state.settings.showTutorialHints && state.week <= 2 && (
@@ -629,6 +637,23 @@ export function App() {
         {state.selectedTab === 'patients' && (
           <section className="card">
             <h3>Caseload & Demand Quality</h3>
+            <div className="row" style={{ marginBottom: 8 }}>
+              <label>
+                Booking policy:&nbsp;
+                <select
+                  value={state.bookingPolicy}
+                  onChange={(event) => {
+                    const policy = event.target.value as BookingPolicy;
+                    setState(setBookingPolicy(state, policy));
+                    setActionMessage(`Booking policy set to ${POLICY_LABELS[policy]}.`);
+                  }}
+                >
+                  {Object.entries(POLICY_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <div className="mini-metrics">
               {demandPressure.map((item) => (
                 <div key={item.label} className={`mini-metric tone-${item.tone}`}>
@@ -644,11 +669,23 @@ export function App() {
               <div className="summary-box">
                 <p>Daily funnel: leads {state.demandSnapshot.inboundLeads} · booked {state.demandSnapshot.bookedVisits} · utilization {state.demandSnapshot.utilization.toFixed(1)}%</p>
                 <p>Lost demand: unbooked {state.demandSnapshot.lostDemand.unbooked}, service mismatch {state.demandSnapshot.lostDemand.serviceMismatch}, capacity {state.demandSnapshot.lostDemand.capacity}</p>
+                <p>Schedule pressure: peak queue {state.latestSchedule.queueLengthPeak}, missed {state.latestSchedule.missedAppointments}, spillover {state.latestSchedule.spilloverMinutes}m</p>
+                <p>Arrival variance: late {state.latestSchedule.lateArrivals}, early {state.latestSchedule.earlyArrivals}, overruns {state.latestSchedule.overruns}, unused gaps {state.latestSchedule.unusedGaps}</p>
                 <p>Insured mix: {state.patientQueue.filter((p) => p.insured).length}/{state.patientQueue.length}</p>
                 <p>High complexity cases: {state.patientQueue.filter((p) => p.complexity > 0.75).length}</p>
                 <p>If no-shows are high, prioritize online booking. If outcomes are low, hire specialist or certification upgrades.</p>
               </div>
             )}
+            <div className="summary-box">
+              <h4>Day schedule (slots)</h4>
+              <p>Used {state.latestSchedule.slotsUsed}/{state.latestSchedule.totalSlots} · Policy {POLICY_LABELS[state.latestSchedule.policy]}</p>
+              <div className="layout-grid" style={{ gridTemplateColumns: 'repeat(12, minmax(0, 1fr))' }}>
+                {Array.from({ length: 36 }).map((_, index) => {
+                  const booked = state.patientQueue.some((visit) => visit.scheduledSlot === index);
+                  return <div key={`slot-${index}`} className={`cell ${booked ? 'filled' : ''}`} title={booked ? `Slot ${index + 1}: booked` : `Slot ${index + 1}: open`}>{booked ? '■' : '·'}</div>;
+                })}
+              </div>
+            </div>
             <div className="patient-list">
               {state.patients.slice(0, 8).map((patient) => (
                 <div key={`journey-${patient.id}`} className="card compact">

@@ -1,5 +1,5 @@
 import { PATIENT_ARCHETYPES, ROOM_DEFS, SERVICES, STAFF_TEMPLATES, UPGRADES } from '../data/content';
-import { GameState, RoomTypeId, ServiceId, StaffMember, StaffRoleId, StaffTraitId } from '../types/game';
+import { BookingPolicy, GameState, RoomTypeId, ServiceId, StaffMember, StaffRoleId, StaffTraitId } from '../types/game';
 import { uid } from './utils';
 import { generatePatients, runDay } from './daySimulation';
 import { getDifficultyPreset } from './simulationConfig';
@@ -194,5 +194,14 @@ export const repayLoan = (state: GameState, amount: number): GameState => {
     cash: state.cash - amount,
     loan: remainingPrincipal <= 0 ? null : { ...state.loan, principal: remainingPrincipal },
     eventLog: [`Paid $${Math.round(amount)} toward loan principal.`, ...state.eventLog].slice(0, 12)
+  };
+};
+
+export const setBookingPolicy = (state: GameState, policy: BookingPolicy): GameState => {
+  if (state.bookingPolicy === policy) return state;
+  return {
+    ...state,
+    bookingPolicy: policy,
+    eventLog: [`Booking policy set to ${policy}.`, ...state.eventLog].slice(0, 12)
   };
 };

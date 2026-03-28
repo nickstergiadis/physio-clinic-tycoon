@@ -2,6 +2,8 @@ import { SAVE_VERSION } from '../data/content';
 import { GameState } from '../types/game';
 import { createInitialState } from './state';
 
+const mergedDayToMinute = (day: number) => day * 24 * 60;
+
 export const migrateStateByVersion = (state: Partial<GameState>, fromVersion: number): Partial<GameState> => {
   if (fromVersion < 2) {
     return {
@@ -53,6 +55,14 @@ export const migrateStateByVersion = (state: Partial<GameState>, fromVersion: nu
     };
   }
 
+  if (fromVersion < 8) {
+    return {
+      ...state,
+      bookingPolicy: state.bookingPolicy ?? undefined,
+      latestSchedule: state.latestSchedule ?? undefined
+    };
+  }
+
   return state;
 };
 
@@ -96,7 +106,11 @@ export const sanitizeState = (state: GameState): GameState => {
     patientQueue: Array.isArray(migrated.patientQueue)
       ? migrated.patientQueue.map((visit) => ({
           ...visit,
-          patientId: visit.patientId ?? visit.id
+          patientId: visit.patientId ?? visit.id,
+          scheduledSlot: visit.scheduledSlot ?? 0,
+          scheduledMinute: visit.scheduledMinute ?? mergedDayToMinute(migrated.day ?? base.day),
+          expectedDuration: visit.expectedDuration ?? 30,
+          arrivalOffsetMinutes: visit.arrivalOffsetMinutes ?? 0
         }))
       : base.patientQueue,
     patients: Array.isArray(migrated.patients)
@@ -141,6 +155,23 @@ export const sanitizeState = (state: GameState): GameState => {
       noShowShift: migrated.operationalModifiers?.noShowShift ?? base.operationalModifiers.noShowShift,
       variableCostShift: migrated.operationalModifiers?.variableCostShift ?? base.operationalModifiers.variableCostShift,
       note: migrated.operationalModifiers?.note
+    },
+    bookingPolicy: migrated.bookingPolicy === 'conservative' || migrated.bookingPolicy === 'aggressive' || migrated.bookingPolicy === 'balanced'
+      ? migrated.bookingPolicy
+      : base.bookingPolicy,
+    latestSchedule: {
+      policy: migrated.latestSchedule?.policy === 'conservative' || migrated.latestSchedule?.policy === 'aggressive' || migrated.latestSchedule?.policy === 'balanced'
+        ? migrated.latestSchedule.policy
+        : base.latestSchedule.policy,
+      slotsUsed: migrated.latestSchedule?.slotsUsed ?? base.latestSchedule.slotsUsed,
+      totalSlots: migrated.latestSchedule?.totalSlots ?? base.latestSchedule.totalSlots,
+      queueLengthPeak: migrated.latestSchedule?.queueLengthPeak ?? base.latestSchedule.queueLengthPeak,
+      missedAppointments: migrated.latestSchedule?.missedAppointments ?? base.latestSchedule.missedAppointments,
+      lateArrivals: migrated.latestSchedule?.lateArrivals ?? base.latestSchedule.lateArrivals,
+      earlyArrivals: migrated.latestSchedule?.earlyArrivals ?? base.latestSchedule.earlyArrivals,
+      overruns: migrated.latestSchedule?.overruns ?? base.latestSchedule.overruns,
+      spilloverMinutes: migrated.latestSchedule?.spilloverMinutes ?? base.latestSchedule.spilloverMinutes,
+      unusedGaps: migrated.latestSchedule?.unusedGaps ?? base.latestSchedule.unusedGaps
     },
     eventLog: Array.isArray(migrated.eventLog) ? migrated.eventLog : base.eventLog,
     settings: {
