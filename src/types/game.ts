@@ -2,7 +2,7 @@ export type GameMode = 'campaign' | 'sandbox';
 export type Screen = 'menu' | 'newGame' | 'loadGame' | 'tutorial' | 'settings' | 'inGame';
 export type GameSpeed = 0 | 1 | 2 | 3;
 export type DifficultyPresetId = 'relaxed' | 'standard' | 'hardcore';
-export type ScenarioId = 'community_rebuild' | 'sports_performance' | 'insurance_crunch';
+export type ScenarioId = 'community_rebuild' | 'sports_performance' | 'insurance_crunch' | 'rural_outreach' | 'elite_concierge';
 
 export type PatientArchetypeId =
   | 'athlete'
@@ -12,10 +12,13 @@ export type PatientArchetypeId =
   | 'chronicPain'
   | 'vestibular'
   | 'workersComp'
-  | 'pediatric';
+  | 'pediatric'
+  | 'neuroRecovery'
+  | 'pelvicHealth'
+  | 'oncologyFatigue';
 
-export type StaffRoleId = 'physio' | 'assistant' | 'frontDesk' | 'specialist';
-export type RoomTypeId = 'reception' | 'treatment' | 'gym' | 'waiting' | 'vestibularLab' | 'hydro';
+export type StaffRoleId = 'physio' | 'assistant' | 'frontDesk' | 'specialist' | 'careCoordinator' | 'manualTherapist' | 'strengthCoach';
+export type RoomTypeId = 'reception' | 'treatment' | 'gym' | 'waiting' | 'vestibularLab' | 'hydro' | 'manualSuite' | 'recoveryStudio' | 'telehealthPod';
 export type BuildItemCategory = 'waiting' | 'wayfinding' | 'frontDesk' | 'decor' | 'rehab' | 'admin' | 'breakroom';
 export type BuildItemId =
   | 'waiting_chairs'
@@ -36,7 +39,11 @@ export type ServiceId =
   | 'vestibularProgram'
   | 'postOpPathway'
   | 'chronicPainProgram'
-  | 'premiumAssessment';
+  | 'premiumAssessment'
+  | 'manualTherapyBlock'
+  | 'pelvicHealthSession'
+  | 'neuroRehabCircuit'
+  | 'teleRehabCheckin';
 
 export type BookingPolicy = 'conservative' | 'balanced' | 'aggressive';
 

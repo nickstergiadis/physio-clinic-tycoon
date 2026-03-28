@@ -4,7 +4,7 @@ import { clamp } from './utils';
 
 const GRID_SIZE = 6;
 const ENTRANCE = { x: 0, y: 0 };
-const CLINICAL_ROOM_TYPES: RoomTypeId[] = ['treatment', 'gym', 'vestibularLab', 'hydro'];
+const CLINICAL_ROOM_TYPES: RoomTypeId[] = ['treatment', 'gym', 'vestibularLab', 'hydro', 'manualSuite', 'recoveryStudio', 'telehealthPod'];
 const neighborDirs = [
   { x: 1, y: 0 },
   { x: -1, y: 0 },
@@ -106,7 +106,10 @@ export const analyzeLayoutFlow = (state: GameState, queue: PatientVisit[]): Layo
     treatment: { reachable: false, totalSteps: 999 },
     gym: { reachable: false, totalSteps: 999 },
     vestibularLab: { reachable: false, totalSteps: 999 },
-    hydro: { reachable: false, totalSteps: 999 }
+    hydro: { reachable: false, totalSteps: 999 },
+    manualSuite: { reachable: false, totalSteps: 999 },
+    recoveryStudio: { reachable: false, totalSteps: 999 },
+    telehealthPod: { reachable: false, totalSteps: 999 }
   } as LayoutFlowDiagnostics['routeMap'];
 
   const receptionTargets = new Set(receptionRooms.map(coordKey));

@@ -77,6 +77,13 @@ export const migrateStateByVersion = (state: Partial<GameState>, fromVersion: nu
     };
   }
 
+  if (fromVersion < 11) {
+    return {
+      ...state,
+      objectiveProgress: state.objectiveProgress ?? undefined
+    };
+  }
+
   return state;
 };
 
@@ -255,7 +262,7 @@ export const sanitizeState = (state: GameState): GameState => {
   };
 
   merged.clinicSize = merged.rooms.length;
-  if (!['community_rebuild', 'sports_performance', 'insurance_crunch'].includes(merged.scenarioId)) {
+  if (!['community_rebuild', 'sports_performance', 'insurance_crunch', 'rural_outreach', 'elite_concierge'].includes(merged.scenarioId)) {
     merged.scenarioId = base.scenarioId;
   }
   merged.maxClinicSize = Math.max(merged.maxClinicSize, 6);

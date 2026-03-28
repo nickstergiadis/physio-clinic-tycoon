@@ -12,7 +12,7 @@ import {
   UpgradeDefinition
 } from '../types/game';
 
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 
 export const PATIENT_ARCHETYPES: PatientArchetype[] = [
   {
@@ -134,6 +134,51 @@ export const PATIENT_ARCHETYPES: PatientArchetype[] = [
     improvementSpeed: 0.62,
     referralValue: 0.77,
     preferredServices: ['initialAssessment', 'exerciseSession', 'groupClass']
+  },
+  {
+    id: 'neuroRecovery',
+    name: 'Neuro Recovery',
+    complexity: 0.9,
+    expectedVisits: 13,
+    patience: 0.62,
+    satisfactionSensitivity: 0.82,
+    reimbursement: 255,
+    adminBurden: 0.52,
+    adherence: 0.58,
+    noShowChance: 0.12,
+    improvementSpeed: 0.44,
+    referralValue: 0.83,
+    preferredServices: ['initialAssessment', 'neuroRehabCircuit', 'followUp']
+  },
+  {
+    id: 'pelvicHealth',
+    name: 'Pelvic Health',
+    complexity: 0.74,
+    expectedVisits: 11,
+    patience: 0.57,
+    satisfactionSensitivity: 0.92,
+    reimbursement: 248,
+    adminBurden: 0.46,
+    adherence: 0.71,
+    noShowChance: 0.1,
+    improvementSpeed: 0.56,
+    referralValue: 0.9,
+    preferredServices: ['initialAssessment', 'pelvicHealthSession', 'manualTherapyBlock']
+  },
+  {
+    id: 'oncologyFatigue',
+    name: 'Oncology Rehab',
+    complexity: 0.8,
+    expectedVisits: 10,
+    patience: 0.76,
+    satisfactionSensitivity: 0.72,
+    reimbursement: 238,
+    adminBurden: 0.64,
+    adherence: 0.61,
+    noShowChance: 0.11,
+    improvementSpeed: 0.47,
+    referralValue: 0.79,
+    preferredServices: ['initialAssessment', 'neuroRehabCircuit', 'teleRehabCheckin']
   }
 ];
 
@@ -185,6 +230,42 @@ export const STAFF_TEMPLATES: StaffTemplate[] = [
     communication: 0.74,
     fatigueResistance: 0.58,
     specialtyBonus: { vestibular: 0.2, chronicPain: 0.14, athlete: 0.12 }
+  },
+  {
+    id: 'careCoordinator',
+    name: 'Care Coordinator',
+    baseWage: 235,
+    hireCost: 1650,
+    speed: 0.66,
+    quality: 0.5,
+    documentation: 0.92,
+    communication: 0.9,
+    fatigueResistance: 0.67,
+    specialtyBonus: { oncologyFatigue: 0.14, workersComp: 0.1, chronicPain: 0.08 }
+  },
+  {
+    id: 'manualTherapist',
+    name: 'Manual Therapy Specialist',
+    baseWage: 435,
+    hireCost: 2950,
+    speed: 0.63,
+    quality: 0.88,
+    documentation: 0.58,
+    communication: 0.72,
+    fatigueResistance: 0.54,
+    specialtyBonus: { pelvicHealth: 0.16, postOp: 0.12, olderAdult: 0.08 }
+  },
+  {
+    id: 'strengthCoach',
+    name: 'Strength Coach',
+    baseWage: 305,
+    hireCost: 2200,
+    speed: 0.82,
+    quality: 0.66,
+    documentation: 0.46,
+    communication: 0.68,
+    fatigueResistance: 0.74,
+    specialtyBonus: { athlete: 0.13, pediatric: 0.11, neuroRecovery: 0.08 }
   }
 ];
 
@@ -210,6 +291,33 @@ export const ROOM_DEFS: RoomDefinition[] = [
     throughputBonus: 0.12,
     satisfactionBonus: 0.12,
     requiredUpgrade: 'hydro_program'
+  },
+  {
+    id: 'manualSuite',
+    name: 'Manual Therapy Suite',
+    cost: 5400,
+    maintenance: 124,
+    throughputBonus: 0.1,
+    satisfactionBonus: 0.13,
+    requiredUpgrade: 'manual_medicine_identity'
+  },
+  {
+    id: 'recoveryStudio',
+    name: 'Neuromotor Recovery Studio',
+    cost: 6800,
+    maintenance: 152,
+    throughputBonus: 0.13,
+    satisfactionBonus: 0.11,
+    requiredUpgrade: 'neuro_rehab_identity'
+  },
+  {
+    id: 'telehealthPod',
+    name: 'Telehealth Pod',
+    cost: 3200,
+    maintenance: 74,
+    throughputBonus: 0.08,
+    satisfactionBonus: 0.06,
+    requiredUpgrade: 'virtual_first_identity'
   }
 ];
 
@@ -295,12 +403,16 @@ export const SERVICES: ServiceDefinition[] = [
   { id: 'vestibularProgram', name: 'Vestibular Program', duration: 40, schedulingNeed: 'high', baseRevenue: 280, qualityImpact: 0.13, fatigueImpact: 0.09, adminLoad: 0.98, requiredRoom: 'vestibularLab', preferredSpecialties: ['vestibular'], facilitySensitivity: 0.45, equipmentSensitivity: 0.45 },
   { id: 'postOpPathway', name: 'Post-op Pathway', duration: 50, schedulingNeed: 'high', baseRevenue: 295, qualityImpact: 0.12, fatigueImpact: 0.09, adminLoad: 1.2, requiredRoom: 'treatment', preferredSpecialties: ['postOp'], facilitySensitivity: 0.4, equipmentSensitivity: 0.35 },
   { id: 'chronicPainProgram', name: 'Chronic Pain Program', duration: 45, schedulingNeed: 'high', baseRevenue: 252, qualityImpact: 0.11, fatigueImpact: 0.072, adminLoad: 1.28, requiredRoom: 'gym', preferredSpecialties: ['chronicPain'], facilitySensitivity: 0.32, equipmentSensitivity: 0.28 },
-  { id: 'premiumAssessment', name: 'Premium Assessment', duration: 70, schedulingNeed: 'high', baseRevenue: 410, qualityImpact: 0.16, fatigueImpact: 0.115, adminLoad: 1.45, requiredRoom: 'treatment', preferredSpecialties: ['athlete', 'postOp', 'vestibular'], facilitySensitivity: 0.5, equipmentSensitivity: 0.45 }
+  { id: 'premiumAssessment', name: 'Premium Assessment', duration: 70, schedulingNeed: 'high', baseRevenue: 410, qualityImpact: 0.16, fatigueImpact: 0.115, adminLoad: 1.45, requiredRoom: 'treatment', preferredSpecialties: ['athlete', 'postOp', 'vestibular'], facilitySensitivity: 0.5, equipmentSensitivity: 0.45 },
+  { id: 'manualTherapyBlock', name: 'Manual Therapy Block', duration: 55, schedulingNeed: 'high', baseRevenue: 328, qualityImpact: 0.14, fatigueImpact: 0.105, adminLoad: 0.9, requiredRoom: 'manualSuite', preferredSpecialties: ['pelvicHealth', 'postOp'], facilitySensitivity: 0.43, equipmentSensitivity: 0.38 },
+  { id: 'pelvicHealthSession', name: 'Pelvic Health Session', duration: 60, schedulingNeed: 'high', baseRevenue: 362, qualityImpact: 0.15, fatigueImpact: 0.098, adminLoad: 1.18, requiredRoom: 'manualSuite', preferredSpecialties: ['pelvicHealth'], facilitySensitivity: 0.48, equipmentSensitivity: 0.4 },
+  { id: 'neuroRehabCircuit', name: 'Neuro Rehab Circuit', duration: 65, schedulingNeed: 'medium', baseRevenue: 346, qualityImpact: 0.13, fatigueImpact: 0.086, adminLoad: 1.06, requiredRoom: 'recoveryStudio', preferredSpecialties: ['neuroRecovery', 'oncologyFatigue'], facilitySensitivity: 0.46, equipmentSensitivity: 0.5 },
+  { id: 'teleRehabCheckin', name: 'Tele-Rehab Check-in', duration: 28, schedulingNeed: 'low', baseRevenue: 118, qualityImpact: 0.045, fatigueImpact: 0.03, adminLoad: 1.22, requiredRoom: 'telehealthPod', preferredSpecialties: ['officeWorker', 'oncologyFatigue'], facilitySensitivity: 0.16, equipmentSensitivity: 0.12 }
 ];
 
 export const UPGRADES: UpgradeDefinition[] = [
   { id: 'ehr_automation', name: 'EHR Automation', cost: 2800, description: 'Reduce admin burden and documentation delays.', effects: { adminReduction: 0.18 } },
-  { id: 'online_booking', name: 'Online Booking Portal', cost: 2200, description: 'Reduce no-shows and improve referrals.', effects: { noShowReduction: 0.12, referralMult: 0.08 } },
+  { id: 'online_booking', name: 'Online Booking Portal', cost: 2200, description: 'Reduce no-shows and improve referrals.', effects: { noShowReduction: 0.16, referralMult: 0.05 } },
   { id: 'community_marketing', name: 'Community Sports Marketing', cost: 3200, description: 'Improve referral pipeline and brand awareness.', effects: { referralMult: 0.16 } },
   { id: 'staff_wellness', name: 'Staff Wellness Program', cost: 2550, description: 'Boost morale and burnout resilience.', effects: { moraleGain: 10 } },
   { id: 'premium_branding', name: 'Premium Clinic Branding', cost: 3800, description: 'Increase pricing power and perceived quality.', effects: { premiumPricing: 0.08, qualityBonus: 0.05 } },
@@ -308,7 +420,15 @@ export const UPGRADES: UpgradeDefinition[] = [
   { id: 'clinic_expansion_ii', name: 'Lease Expansion II', cost: 8600, description: 'Increase layout capacity further.', effects: { maxClinicSize: 12 } },
   { id: 'vestibular_suite', name: 'Vestibular Suite Certification', cost: 5700, description: 'Unlock vestibular lab and services.', effects: { unlockRooms: ['vestibularLab'], unlockServices: ['vestibularProgram'] } },
   { id: 'hydro_program', name: 'Hydro Therapy Program', cost: 7400, description: 'Unlock hydro room and specialty service access.', effects: { unlockRooms: ['hydro'], qualityBonus: 0.08 } },
-  { id: 'advanced_certification', name: 'Advanced Clinical Certification', cost: 6400, description: 'Boost quality outcomes in complex cohorts.', effects: { qualityBonus: 0.1 } }
+  { id: 'advanced_certification', name: 'Advanced Clinical Certification', cost: 6400, description: 'Boost quality outcomes in complex cohorts.', effects: { qualityBonus: 0.1 } },
+  { id: 'manual_medicine_identity', name: 'Clinic Identity: Manual Medicine', cost: 6600, description: 'Lean into high-touch care. Unlock manual suite + manual therapy block with premium outcomes but heavier staffing costs.', effects: { unlockRooms: ['manualSuite'], unlockServices: ['manualTherapyBlock'], qualityBonus: 0.05 } },
+  { id: 'pelvic_center_program', name: 'Pelvic Health Center', cost: 7200, description: 'Second-stage identity upgrade: unlock pelvic health sessions and pricing power, but you must carry higher admin load.', effects: { unlockServices: ['pelvicHealthSession'], premiumPricing: 0.06 } },
+  { id: 'neuro_rehab_identity', name: 'Clinic Identity: Neuro Recovery', cost: 7100, description: 'Build multidisciplinary neuro care. Unlock recovery studio and neuro rehab circuit, improving referrals from complex cohorts.', effects: { unlockRooms: ['recoveryStudio'], unlockServices: ['neuroRehabCircuit'], referralMult: 0.12 } },
+  { id: 'outcomes_research_lab', name: 'Outcomes Research Lab', cost: 8400, description: 'Late-game neuro/data specialization that boosts quality at the cost of higher capital commitment.', effects: { qualityBonus: 0.07, adminReduction: 0.08 } },
+  { id: 'virtual_first_identity', name: 'Clinic Identity: Virtual-First Continuum', cost: 5200, description: 'Hybrid delivery model. Unlock telehealth pod and tele-rehab check-ins to smooth utilization and retain low-acuity cohorts.', effects: { unlockRooms: ['telehealthPod'], unlockServices: ['teleRehabCheckin'], noShowReduction: 0.1 } },
+  { id: 'remote_triage_protocols', name: 'Remote Triage Protocols', cost: 4800, description: 'Standardized remote intake boosts referral conversion and admin efficiency for follow-through.', effects: { referralMult: 0.08, adminReduction: 0.1 } },
+  { id: 'performance_identity', name: 'Clinic Identity: Performance Institute', cost: 6900, description: 'Athlete-performance brand that improves premium pricing and referral pull, but requires disciplined scheduling to realize value.', effects: { premiumPricing: 0.07, referralMult: 0.1 } },
+  { id: 'return_to_play_lab', name: 'Return-to-Play Lab', cost: 7600, description: 'Late-game sports specialization compounding quality and no-show resilience for athlete pathways.', effects: { qualityBonus: 0.06, noShowReduction: 0.08 } }
 ];
 
 export const DIFFICULTY_PRESETS: DifficultyPreset[] = [
@@ -331,7 +451,7 @@ export const DIFFICULTY_PRESETS: DifficultyPreset[] = [
     expenseMultiplier: 1,
     noShowShift: 0,
     cancellationShift: 0,
-    reputationDecay: 0.04,
+    reputationDecay: 0.03,
     loanInterestMultiplier: 1
   },
   {
@@ -401,6 +521,42 @@ export const CAMPAIGN_SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
       { id: 'district_unlock', label: 'Secure district expansion rights', metric: 'districtTier', target: 2, deadlineWeek: 12 }
     ],
     failure: { maxDebt: -32000, minReputation: 8, stressWeek: 4 }
+  },
+  rural_outreach: {
+    id: 'rural_outreach',
+    name: 'Rural Outreach Network',
+    description: 'Grow a mixed in-person/virtual clinic that keeps access high despite long travel times and volatile attendance.',
+    startCash: 18500,
+    startReputation: 38,
+    startReferrals: 13,
+    rent: 690,
+    equipmentCost: 145,
+    startingLoanOffer: 14000,
+    demandMixBias: { olderAdult: 0.12, oncologyFatigue: 0.16, officeWorker: 0.08 },
+    objectives: [
+      { id: 'access_growth', label: 'Deliver broad access volume', metric: 'attendedVisits', target: 240, deadlineWeek: 12 },
+      { id: 'service_mix', label: 'Offer hybrid care portfolio', metric: 'serviceDiversity', target: 8, deadlineWeek: 12 },
+      { id: 'rep_stability', label: 'Maintain rural trust', metric: 'reputation', target: 68, deadlineWeek: 12, optional: true }
+    ],
+    failure: { maxDebt: -34000, minReputation: 6, stressWeek: 4 }
+  },
+  elite_concierge: {
+    id: 'elite_concierge',
+    name: 'Elite Concierge Practice',
+    description: 'Operate a high-margin, high-expectation clinic where outcomes and reputation matter more than raw volume.',
+    startCash: 26000,
+    startReputation: 52,
+    startReferrals: 12,
+    rent: 940,
+    equipmentCost: 180,
+    startingLoanOffer: 9000,
+    demandMixBias: { athlete: 0.16, pelvicHealth: 0.14, vestibular: 0.1 },
+    objectives: [
+      { id: 'quality_bar', label: 'Sustain elite outcomes', metric: 'avgOutcome', target: 0.71, deadlineWeek: 12 },
+      { id: 'cashflow_positive', label: 'Build premium cash reserve', metric: 'cash', target: 52000, deadlineWeek: 12 },
+      { id: 'district_unlock', label: 'Reach city-tier reputation', metric: 'districtTier', target: 3, deadlineWeek: 12 }
+    ],
+    failure: { maxDebt: -24000, minReputation: 18, stressWeek: 5 }
   }
 };
 
@@ -408,19 +564,31 @@ export const DEFAULT_SCENARIO_ID: ScenarioId = 'community_rebuild';
 
 export const REPUTATION_TIERS: ReputationTier[] = [
   { id: 'local', threshold: 40, grant: 0, unlockServices: [], unlockUpgrades: [] },
-  { id: 'district', threshold: 60, grant: 3500, unlockServices: ['premiumAssessment'], unlockUpgrades: ['advanced_certification'] },
-  { id: 'city', threshold: 78, grant: 6000, unlockServices: ['vestibularProgram'], unlockUpgrades: ['vestibular_suite'] }
+  {
+    id: 'district',
+    threshold: 60,
+    grant: 4200,
+    unlockServices: ['premiumAssessment', 'manualTherapyBlock'],
+    unlockUpgrades: ['advanced_certification', 'manual_medicine_identity', 'virtual_first_identity', 'performance_identity']
+  },
+  {
+    id: 'city',
+    threshold: 78,
+    grant: 7600,
+    unlockServices: ['vestibularProgram', 'neuroRehabCircuit'],
+    unlockUpgrades: ['vestibular_suite', 'neuro_rehab_identity', 'pelvic_center_program', 'outcomes_research_lab', 'remote_triage_protocols', 'return_to_play_lab']
+  }
 ];
 
 export const SIMULATION_BALANCE: SimulationBalance = {
   minDailyDemand: 5,
   maxDailyDemand: 40,
-  referralsToDemand: 0.8,
-  reputationToDemand: 0.1,
+  referralsToDemand: 0.78,
+  reputationToDemand: 0.095,
   uninsuredThreshold: 0.35,
-  capacityPerStaff: 4.4,
+  capacityPerStaff: 4.2,
   fatigueCapacityDivisor: 200,
-  roomThroughputUnit: 5,
+  roomThroughputUnit: 4.9,
   overcrowdThreshold: 4,
   overcrowdPenalty: 0.8,
   baseNoShowBuffer: 0.015,
@@ -428,12 +596,12 @@ export const SIMULATION_BALANCE: SimulationBalance = {
   maxNoShowChance: 0.45,
   comfortCapacityRatio: 0.6,
   waitUnitMinutes: 4,
-  qualityFatigueDivisor: 220,
-  fatigueServiceScale: 16,
+  qualityFatigueDivisor: 235,
+  fatigueServiceScale: 15.5,
   fatigueResistanceWeight: 0.45,
   moraleGainScaling: 0.05,
-  insuredRevenueMultiplier: 0.92,
-  selfPayRevenueMultiplier: 1.12,
+  insuredRevenueMultiplier: 0.94,
+  selfPayRevenueMultiplier: 1.1,
   adminReductionWeight: 1.1,
   documentationThroughput: 2.8,
   docsPenaltyThreshold: 10,
