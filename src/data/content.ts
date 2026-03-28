@@ -11,7 +11,7 @@ import {
   UpgradeDefinition
 } from '../types/game';
 
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 export const PATIENT_ARCHETYPES: PatientArchetype[] = [
   {
@@ -213,15 +213,15 @@ export const ROOM_DEFS: RoomDefinition[] = [
 ];
 
 export const SERVICES: ServiceDefinition[] = [
-  { id: 'initialAssessment', name: 'Initial Assessment', duration: 45, baseRevenue: 225, qualityImpact: 0.1, fatigueImpact: 0.08, adminLoad: 1.05, requiredRoom: 'treatment', preferredSpecialties: ['postOp', 'workersComp'], facilitySensitivity: 0.3, equipmentSensitivity: 0.25 },
-  { id: 'followUp', name: 'Follow-up Session', duration: 30, baseRevenue: 132, qualityImpact: 0.06, fatigueImpact: 0.055, adminLoad: 0.72, requiredRoom: 'treatment', preferredSpecialties: ['officeWorker', 'olderAdult'], facilitySensitivity: 0.2, equipmentSensitivity: 0.15 },
-  { id: 'exerciseSession', name: 'Exercise Session', duration: 35, baseRevenue: 144, qualityImpact: 0.07, fatigueImpact: 0.06, adminLoad: 0.55, requiredRoom: 'gym', preferredSpecialties: ['athlete', 'pediatric'], facilitySensitivity: 0.35, equipmentSensitivity: 0.3 },
-  { id: 'groupClass', name: 'Group Class', duration: 50, baseRevenue: 338, qualityImpact: 0.05, fatigueImpact: 0.045, adminLoad: 1.2, requiredRoom: 'gym', preferredSpecialties: ['chronicPain', 'olderAdult'], facilitySensitivity: 0.28, equipmentSensitivity: 0.2 },
-  { id: 'returnToSport', name: 'Return-to-Sport Package', duration: 55, baseRevenue: 306, qualityImpact: 0.14, fatigueImpact: 0.095, adminLoad: 1.05, requiredRoom: 'gym', preferredSpecialties: ['athlete'], facilitySensitivity: 0.42, equipmentSensitivity: 0.45 },
-  { id: 'vestibularProgram', name: 'Vestibular Program', duration: 40, baseRevenue: 280, qualityImpact: 0.13, fatigueImpact: 0.09, adminLoad: 0.98, requiredRoom: 'vestibularLab', preferredSpecialties: ['vestibular'], facilitySensitivity: 0.45, equipmentSensitivity: 0.45 },
-  { id: 'postOpPathway', name: 'Post-op Pathway', duration: 50, baseRevenue: 295, qualityImpact: 0.12, fatigueImpact: 0.09, adminLoad: 1.2, requiredRoom: 'treatment', preferredSpecialties: ['postOp'], facilitySensitivity: 0.4, equipmentSensitivity: 0.35 },
-  { id: 'chronicPainProgram', name: 'Chronic Pain Program', duration: 45, baseRevenue: 252, qualityImpact: 0.11, fatigueImpact: 0.072, adminLoad: 1.28, requiredRoom: 'gym', preferredSpecialties: ['chronicPain'], facilitySensitivity: 0.32, equipmentSensitivity: 0.28 },
-  { id: 'premiumAssessment', name: 'Premium Assessment', duration: 70, baseRevenue: 410, qualityImpact: 0.16, fatigueImpact: 0.115, adminLoad: 1.45, requiredRoom: 'treatment', preferredSpecialties: ['athlete', 'postOp', 'vestibular'], facilitySensitivity: 0.5, equipmentSensitivity: 0.45 }
+  { id: 'initialAssessment', name: 'Initial Assessment', duration: 45, schedulingNeed: 'high', baseRevenue: 225, qualityImpact: 0.1, fatigueImpact: 0.08, adminLoad: 1.05, requiredRoom: 'treatment', preferredSpecialties: ['postOp', 'workersComp'], facilitySensitivity: 0.3, equipmentSensitivity: 0.25 },
+  { id: 'followUp', name: 'Follow-up Session', duration: 30, schedulingNeed: 'medium', baseRevenue: 132, qualityImpact: 0.06, fatigueImpact: 0.055, adminLoad: 0.72, requiredRoom: 'treatment', preferredSpecialties: ['officeWorker', 'olderAdult'], facilitySensitivity: 0.2, equipmentSensitivity: 0.15 },
+  { id: 'exerciseSession', name: 'Exercise Session', duration: 35, schedulingNeed: 'medium', baseRevenue: 144, qualityImpact: 0.07, fatigueImpact: 0.06, adminLoad: 0.55, requiredRoom: 'gym', preferredSpecialties: ['athlete', 'pediatric'], facilitySensitivity: 0.35, equipmentSensitivity: 0.3 },
+  { id: 'groupClass', name: 'Group Class', duration: 50, schedulingNeed: 'low', baseRevenue: 338, qualityImpact: 0.05, fatigueImpact: 0.045, adminLoad: 1.2, requiredRoom: 'gym', preferredSpecialties: ['chronicPain', 'olderAdult'], facilitySensitivity: 0.28, equipmentSensitivity: 0.2 },
+  { id: 'returnToSport', name: 'Return-to-Sport Package', duration: 55, schedulingNeed: 'high', baseRevenue: 306, qualityImpact: 0.14, fatigueImpact: 0.095, adminLoad: 1.05, requiredRoom: 'gym', preferredSpecialties: ['athlete'], facilitySensitivity: 0.42, equipmentSensitivity: 0.45 },
+  { id: 'vestibularProgram', name: 'Vestibular Program', duration: 40, schedulingNeed: 'high', baseRevenue: 280, qualityImpact: 0.13, fatigueImpact: 0.09, adminLoad: 0.98, requiredRoom: 'vestibularLab', preferredSpecialties: ['vestibular'], facilitySensitivity: 0.45, equipmentSensitivity: 0.45 },
+  { id: 'postOpPathway', name: 'Post-op Pathway', duration: 50, schedulingNeed: 'high', baseRevenue: 295, qualityImpact: 0.12, fatigueImpact: 0.09, adminLoad: 1.2, requiredRoom: 'treatment', preferredSpecialties: ['postOp'], facilitySensitivity: 0.4, equipmentSensitivity: 0.35 },
+  { id: 'chronicPainProgram', name: 'Chronic Pain Program', duration: 45, schedulingNeed: 'high', baseRevenue: 252, qualityImpact: 0.11, fatigueImpact: 0.072, adminLoad: 1.28, requiredRoom: 'gym', preferredSpecialties: ['chronicPain'], facilitySensitivity: 0.32, equipmentSensitivity: 0.28 },
+  { id: 'premiumAssessment', name: 'Premium Assessment', duration: 70, schedulingNeed: 'high', baseRevenue: 410, qualityImpact: 0.16, fatigueImpact: 0.115, adminLoad: 1.45, requiredRoom: 'treatment', preferredSpecialties: ['athlete', 'postOp', 'vestibular'], facilitySensitivity: 0.5, equipmentSensitivity: 0.45 }
 ];
 
 export const UPGRADES: UpgradeDefinition[] = [

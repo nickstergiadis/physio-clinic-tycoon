@@ -29,6 +29,8 @@ export type ServiceId =
   | 'chronicPainProgram'
   | 'premiumAssessment';
 
+export type BookingPolicy = 'conservative' | 'balanced' | 'aggressive';
+
 export interface PatientArchetype {
   id: PatientArchetypeId;
   name: string;
@@ -106,6 +108,7 @@ export interface ServiceDefinition {
   id: ServiceId;
   name: string;
   duration: number;
+  schedulingNeed: 'low' | 'medium' | 'high';
   baseRevenue: number;
   qualityImpact: number;
   fatigueImpact: number;
@@ -268,7 +271,24 @@ export interface PatientVisit {
   service: ServiceId;
   complexity: number;
   insured: boolean;
+  scheduledSlot: number;
+  scheduledMinute: number;
+  expectedDuration: number;
+  arrivalOffsetMinutes: number;
   status: 'waiting' | 'completed' | 'noShow' | 'late';
+}
+
+export interface ScheduleMetrics {
+  policy: BookingPolicy;
+  slotsUsed: number;
+  totalSlots: number;
+  queueLengthPeak: number;
+  missedAppointments: number;
+  lateArrivals: number;
+  earlyArrivals: number;
+  overruns: number;
+  spilloverMinutes: number;
+  unusedGaps: number;
 }
 
 export type PatientLifecycleState = 'lead' | 'booked' | 'arrived' | 'waiting' | 'treated' | 'needsFollowUp' | 'discharged' | 'droppedOut';
@@ -324,6 +344,7 @@ export interface DaySummary {
   };
   notes: string[];
   layoutFlow?: LayoutFlowSummary;
+  schedule: ScheduleMetrics;
 }
 
 export interface WeeklyLedger {
@@ -368,6 +389,7 @@ export interface GameState {
   gameOver: boolean;
   gameWon: boolean;
   selectedTab: 'overview' | 'build' | 'staff' | 'patients' | 'finance' | 'upgrades';
+  bookingPolicy: BookingPolicy;
   unlockedUpgrades: string[];
   unlockedRooms: RoomTypeId[];
   unlockedServices: ServiceId[];
@@ -400,6 +422,7 @@ export interface GameState {
   backlogDocs: number;
   fatigueIndex: number;
   latestSummary?: DaySummary;
+  latestSchedule: ScheduleMetrics;
   eventLog: string[];
   campaignGoal: {
     targetWeek: number;

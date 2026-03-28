@@ -7,6 +7,7 @@ import { calculateDemandInputs } from './demandGeneration';
 import { buildWeeklyLedger, resolveDailyEconomy, totalWeeklyFixedCosts } from './economy';
 import { resolveVisits, treatmentCapacity } from './visitResolution';
 import { buildDailyPatientFlow, updatePatientJourneys } from './patientJourney';
+import { baseScheduleMetrics } from './queueManagement';
 
 interface DemandBuild {
   leads: number;
@@ -94,11 +95,11 @@ export const runDay = (state: GameState): GameState => {
     scheduled: staffMember.trainingDaysRemaining > 0 ? false : staffMember.scheduled,
     shift: staffMember.trainingDaysRemaining > 0 ? 'off' : staffMember.shift,
     fatigue: clamp(
-      staffMember.fatigue - BALANCE.dailyFatigueRecovery + (1 - staffMember.fatigueResistance) * BALANCE.lowResistanceRecoveryPenalty + (staffMember.shift === 'full' ? 1.4 : 0),
+      staffMember.fatigue - BALANCE.dailyFatigueRecovery + (1 - staffMember.fatigueResistance) * BALANCE.lowResistanceRecoveryPenalty + (staffMember.shift === 'full' ? 1.4 : 0) + visits.schedule.spilloverMinutes / 180,
       0,
       100
     ),
-    morale: clamp(staffMember.morale + (staffMember.shift === 'off' ? 2.2 : 0) - (staffMember.fatigue > 78 ? 1.5 : 0), 0, 100),
+    morale: clamp(staffMember.morale + (staffMember.shift === 'off' ? 2.2 : 0) - (staffMember.fatigue > 78 ? 1.5 : 0) - visits.schedule.missedAppointments * 0.08, 0, 100),
     burnoutRisk: clamp(
       staffMember.burnoutRisk + (staffMember.fatigue > 80 ? 0.03 : -0.015) + (staffMember.shift === 'off' ? -0.02 : 0),
       0,
@@ -152,6 +153,8 @@ export const runDay = (state: GameState): GameState => {
   if (!hasScheduledStaff) notes.push('No staff were scheduled today, so no patients were treated.');
   if (average(next.staff.map((staffMember) => staffMember.burnoutRisk)) > 0.5) notes.push('Burnout risk is rising. Use half/off shifts and stagger training to recover morale.');
   if (visits.layoutFlow.congestionIndex > 1.35) notes.push(`Hallway congestion index ${visits.layoutFlow.congestionIndex.toFixed(2)} is slowing patient flow.`);
+  if (visits.schedule.spilloverMinutes > 25) notes.push(`Day spilled over by ${visits.schedule.spilloverMinutes} minutes. Consider less aggressive booking or adding staff.`);
+  if (visits.schedule.missedAppointments > Math.max(2, visits.attended * 0.25)) notes.push('High missed appointments today. Front-desk quality and booking policy matter more now.');
   if (next.operationalModifiers.note) notes.push(next.operationalModifiers.note);
 
   const summary: DaySummary = {
@@ -195,10 +198,23 @@ export const runDay = (state: GameState): GameState => {
       warnings: visits.layoutFlow.warnings,
       unreachableRoutes: visits.layoutFlow.unreachableRoutes,
       heatmap: visits.layoutFlow.heatmap
+    },
+    schedule: {
+      policy: next.bookingPolicy,
+      slotsUsed: visits.schedule.slotsUsed,
+      totalSlots: 36,
+      queueLengthPeak: visits.schedule.queueLengthPeak,
+      missedAppointments: visits.schedule.missedAppointments,
+      lateArrivals: visits.schedule.lateArrivals,
+      earlyArrivals: visits.schedule.earlyArrivals,
+      overruns: visits.schedule.overruns,
+      spilloverMinutes: visits.schedule.spilloverMinutes,
+      unusedGaps: visits.schedule.unusedGaps
     }
   };
 
   next.latestSummary = summary;
+  next.latestSchedule = summary.schedule;
   next.demandSnapshot = {
     inboundLeads: demand.leads,
     bookedVisits: demand.booked.length,
@@ -232,6 +248,8 @@ export const runDay = (state: GameState): GameState => {
     noShowShift: next.dev?.highNoShowMode ? 0.2 : 0,
     variableCostShift: 0
   };
+
+  if (!next.latestSchedule) next.latestSchedule = baseScheduleMetrics(next.bookingPolicy);
 
   return next;
 };

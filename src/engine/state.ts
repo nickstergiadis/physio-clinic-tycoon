@@ -2,6 +2,7 @@ import { DEFAULT_SCENARIO_ID, SAVE_VERSION } from '../data/content';
 import { DifficultyPresetId, GameMode, GameState, PatientArchetypeId, ScenarioId, StaffMember, StaffRoleId, StaffTraitId } from '../types/game';
 import { getScenario } from './campaign';
 import { uid } from './utils';
+import { baseScheduleMetrics } from './queueManagement';
 
 const makeStaff = (role: StaffRoleId, name: string, wage: number, trait: StaffTraitId, specialtyFocus: PatientArchetypeId): StaffMember => ({
   uid: uid(),
@@ -52,6 +53,7 @@ export const createInitialState = (mode: GameMode, scenarioId: ScenarioId = DEFA
   gameOver: false,
   gameWon: false,
   selectedTab: 'overview',
+  bookingPolicy: 'balanced',
   unlockedUpgrades: [],
   unlockedRooms: ['reception', 'waiting', 'treatment', 'gym'],
   unlockedServices: ['initialAssessment', 'followUp', 'exerciseSession', 'groupClass', 'postOpPathway'],
@@ -100,6 +102,7 @@ export const createInitialState = (mode: GameMode, scenarioId: ScenarioId = DEFA
   backlogDocs: 0,
   fatigueIndex: 0.2,
   latestSummary: undefined,
+  latestSchedule: baseScheduleMetrics('balanced'),
   eventLog: ['Welcome to Physiotherapy Clinic Tycoon.'],
   campaignGoal: {
     targetWeek: mode === 'sandbox' ? 0 : Math.max(...scenario.objectives.map((objective) => objective.deadlineWeek)),

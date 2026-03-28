@@ -4,6 +4,7 @@ import { BALANCE, getDifficultyPreset, sumUpgradeEffect } from './simulationConf
 import { average, clamp, rand } from './utils';
 import { markCompletedVisit, markNoShowVisit, markWaitingVisit } from './patientTransitions';
 import { analyzeLayoutFlow } from './layoutFlow';
+import { DAY_START_MINUTE, SLOT_MINUTES, getFrontDeskEfficiency, summarizeSlotUsage } from './queueManagement';
 
 const getArchetype = (id: string): PatientArchetype => PATIENT_ARCHETYPES.find((p) => p.id === id) ?? PATIENT_ARCHETYPES[0];
 const getService = (id: ServiceId) => SERVICES.find((s) => s.id === id) ?? SERVICES[0];
@@ -54,6 +55,16 @@ export interface VisitResolution {
     satisfaction: number;
     service: ServiceId;
   }[];
+  schedule: {
+    queueLengthPeak: number;
+    missedAppointments: number;
+    lateArrivals: number;
+    earlyArrivals: number;
+    overruns: number;
+    spilloverMinutes: number;
+    unusedGaps: number;
+    slotsUsed: number;
+  };
 }
 
 const staffServiceFit = (staff: StaffMember, archetype: PatientArchetype, serviceId: ServiceId, requiredRoom: RoomTypeId): number => {
@@ -69,7 +80,7 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
   const baselineProcessable = queue.slice(0, capacity);
   const layoutFlow = analyzeLayoutFlow(state, baselineProcessable);
   const effectiveCapacity = Math.max(0, Math.floor(capacity * layoutFlow.throughputMultiplier));
-  const processable = queue.slice(0, effectiveCapacity);
+  const processable = queue.slice(0, effectiveCapacity).sort((a, b) => a.scheduledMinute - b.scheduledMinute || a.scheduledSlot - b.scheduledSlot);
   const capacityLost = Math.max(0, queue.length - effectiveCapacity);
   const noShowReduction = sumUpgradeEffect(state, (effects) => effects.noShowReduction);
   const qualityBonus = sumUpgradeEffect(state, (effects) => effects.qualityBonus);
@@ -80,6 +91,19 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
   const staffPool = state.staff.filter((staffMember) => staffMember.scheduled);
   const hasScheduledStaff = staffPool.length > 0;
   const modifier = state.operationalModifiers;
+  const frontDeskEfficiency = getFrontDeskEfficiency(state);
+  const slotSummary = summarizeSlotUsage(queue, state.bookingPolicy);
+  const schedule = {
+    queueLengthPeak: 0,
+    missedAppointments: 0,
+    lateArrivals: slotSummary.lateArrivals,
+    earlyArrivals: slotSummary.earlyArrivals,
+    overruns: 0,
+    spilloverMinutes: 0,
+    unusedGaps: slotSummary.unusedGaps,
+    slotsUsed: slotSummary.slotsUsed
+  };
+  let runningClock = DAY_START_MINUTE;
 
   let revenue = 0;
   let variableCosts = 0;
@@ -126,6 +150,7 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
     const cancellationChance = clamp(0.04 + archetype.complexity * 0.08 + modifier.cancellationShift + preset.cancellationShift, 0.01, 0.35);
     if (rand(state.seed + state.day * 41 + i) < cancellationChance) {
       cancellations += 1;
+      schedule.missedAppointments += 1;
       journeyEvents.push({ patientId: visit.patientId, result: 'cancelled', wait: 0, outcome: 0, satisfaction: 0, service: visit.service });
       continue;
     }
@@ -137,13 +162,20 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
     );
     if (rand(state.seed + state.day * 31 + i) < noShowChance) {
       noShows += 1;
+      schedule.missedAppointments += 1;
       resolvedVisits.push(markNoShowVisit(visit));
       journeyEvents.push({ patientId: visit.patientId, result: 'noShow', wait: 0, outcome: 0, satisfaction: 0, service: visit.service });
       continue;
     }
 
+    const arrivalMinute = visit.scheduledMinute + visit.arrivalOffsetMinutes;
+    const queueAtArrival = processable.filter((candidate, idx) => idx < i && (candidate.scheduledMinute + candidate.arrivalOffsetMinutes) <= arrivalMinute).length - attended;
+    schedule.queueLengthPeak = Math.max(schedule.queueLengthPeak, Math.max(0, queueAtArrival + 1));
+    runningClock = Math.max(runningClock, arrivalMinute);
+
     const routeTravelPenalty = routeStats ? routeStats.totalSteps * 0.15 : 0;
-    const wait = Math.max(0, (i + 1 - capacity * BALANCE.comfortCapacityRatio) * BALANCE.waitUnitMinutes + layoutFlow.waitPenaltyMinutes + routeTravelPenalty);
+    const scheduleDelay = clamp(Math.max(0, runningClock - visit.scheduledMinute), 0, 90);
+    const wait = Math.max(0, scheduleDelay * 0.45 + (i + 1 - capacity * BALANCE.comfortCapacityRatio) * BALANCE.waitUnitMinutes + layoutFlow.waitPenaltyMinutes + routeTravelPenalty);
     const matchingFocusedRoom = serviceRooms.filter((room) => room.focusService === service.id).length;
     const avgEquipment = average(serviceRooms.map((room) => room.equipmentLevel));
     const facilityFit = (avgEquipment - 1) * 0.08 * service.equipmentSensitivity + (matchingFocusedRoom / serviceRooms.length) * 0.06 * service.facilitySensitivity;
@@ -164,15 +196,26 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
     resolvedVisits.push(markCompletedVisit(visit));
     journeyEvents.push({ patientId: visit.patientId, result: 'completed', wait, outcome, satisfaction, service: visit.service });
 
+    const scheduleNeedPressure = service.schedulingNeed === 'high' ? 0.2 : service.schedulingNeed === 'medium' ? 0.1 : 0.04;
+    const overrunNoise = rand(state.seed + state.day * 557 + i * 19);
+    const overrunMinutes = Math.max(0, Math.round((service.duration * (overrunNoise * scheduleNeedPressure * 0.55 + visit.complexity * 0.07 + (1 - frontDeskEfficiency) * 0.05)) - 6));
+    if (overrunMinutes > 4) schedule.overruns += 1;
+    runningClock += visit.expectedDuration + overrunMinutes;
+
     const fatigueGain = service.fatigueImpact * BALANCE.fatigueServiceScale * (1 - staff.fatigueResistance * BALANCE.fatigueResistanceWeight) * (1 + (1 - layoutFlow.staffEfficiencyMultiplier));
     staff.fatigue = clamp(staff.fatigue + fatigueGain, 0, 100);
     staff.morale = clamp(staff.morale + (satisfaction - 0.6) * 5 + moraleGain * BALANCE.moraleGainScaling, 0, 100);
     burnoutPressure += staff.fatigue > 70 ? 1 : 0;
   }
 
+  const dayCloseMinute = DAY_START_MINUTE + SLOT_MINUTES * slotSummary.totalSlots;
+  schedule.spilloverMinutes = Math.max(0, Math.round(runningClock - dayCloseMinute));
+  variableCosts += schedule.spilloverMinutes * 0.4;
+  schedule.missedAppointments += Math.max(0, queue.length - processable.length);
+
   for (const visit of queue.slice(effectiveCapacity)) {
     journeyEvents.push({ patientId: visit.patientId, result: 'unserved', wait: 0, outcome: 0, satisfaction: 0, service: visit.service });
   }
 
-  return { revenue, variableCosts, adminLoad, totalWait, cancellations, noShows, attended, capacityLost, outcomes, staffingBottlenecks, roomBottlenecks, equipmentBottlenecks, burnoutPressure, resolvedVisits, layoutFlow, journeyEvents };
+  return { revenue, variableCosts, adminLoad, totalWait, cancellations, noShows, attended, capacityLost, outcomes, staffingBottlenecks, roomBottlenecks, equipmentBottlenecks, burnoutPressure, resolvedVisits, layoutFlow, journeyEvents, schedule };
 };

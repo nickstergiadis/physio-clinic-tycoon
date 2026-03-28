@@ -3,6 +3,7 @@ import { GameState, PatientArchetype, PatientVisit, PersistentPatient, ServiceId
 import { BALANCE } from './simulationConfig';
 import { clamp, rand, uid } from './utils';
 import { weightedArchetype } from './demandGeneration';
+import { allocateAppointmentSlots } from './queueManagement';
 
 const archetypeById = (id: PersistentPatient['archetype']): PatientArchetype => PATIENT_ARCHETYPES.find((archetype) => archetype.id === id) ?? PATIENT_ARCHETYPES[0];
 
@@ -39,6 +40,10 @@ export const buildDailyPatientFlow = (state: GameState, day: number, leads: numb
       service: patient.nextRecommendedService,
       complexity: archetypeById(patient.archetype).complexity,
       insured: patient.payerType === 'insured',
+      scheduledSlot: 0,
+      scheduledMinute: day * 24 * 60,
+      expectedDuration: 30,
+      arrivalOffsetMinutes: 0,
       status: 'waiting'
     });
   }
@@ -94,15 +99,21 @@ export const buildDailyPatientFlow = (state: GameState, day: number, leads: numb
       service: nextService,
       complexity: archetype.complexity,
       insured,
+      scheduledSlot: 0,
+      scheduledMinute: day * 24 * 60,
+      expectedDuration: 30,
+      arrivalOffsetMinutes: 0,
       status: 'waiting'
     });
   }
+
+  const scheduledVisits = allocateAppointmentSlots(state, bookedVisits);
 
   return {
     inboundLeads: leads,
     referralLeads,
     newPatients,
-    bookedVisits,
+    bookedVisits: scheduledVisits,
     returningBooked: returningPatients.length,
     rebookedFromExisting: returningPatients.length,
     lostUnbooked,
