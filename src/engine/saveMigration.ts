@@ -46,6 +46,13 @@ export const migrateStateByVersion = (state: Partial<GameState>, fromVersion: nu
     };
   }
 
+  if (fromVersion < 7) {
+    return {
+      ...state,
+      pathTiles: state.pathTiles ?? undefined
+    };
+  }
+
   return state;
 };
 
@@ -80,6 +87,9 @@ export const sanitizeState = (state: GameState): GameState => {
           focusService: room.focusService ?? 'general'
         }))
       : base.rooms,
+    pathTiles: Array.isArray(migrated.pathTiles)
+      ? migrated.pathTiles.filter((tile) => typeof tile?.x === 'number' && typeof tile?.y === 'number').map((tile) => ({ x: tile.x, y: tile.y }))
+      : base.pathTiles,
     unlockedUpgrades: Array.isArray(migrated.unlockedUpgrades) ? migrated.unlockedUpgrades : base.unlockedUpgrades,
     unlockedRooms: Array.isArray(migrated.unlockedRooms) ? migrated.unlockedRooms : base.unlockedRooms,
     unlockedServices: Array.isArray(migrated.unlockedServices) ? migrated.unlockedServices : base.unlockedServices,

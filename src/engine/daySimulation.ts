@@ -141,6 +141,7 @@ export const runDay = (state: GameState): GameState => {
   }
   const hasScheduledStaff = next.staff.some((staffMember) => staffMember.scheduled);
   if (visits.capacityLost > 0) notes.push('Demand exceeded daily capacity. Add clinicians or rooms to capture growth.');
+  if (visits.layoutFlow.warnings.length > 0) notes.push(`Layout warning: ${visits.layoutFlow.warnings[0]}`);
   if (visits.staffingBottlenecks > 0) notes.push(`Staffing bottleneck hit ${visits.staffingBottlenecks} visits. Reassign staff or add training coverage.`);
   if (visits.roomBottlenecks > 0) notes.push(`Room bottleneck hit ${visits.roomBottlenecks} visits. Build required room types for service mix.`);
   if (visits.equipmentBottlenecks > 0) notes.push(`Equipment quality constrained ${visits.equipmentBottlenecks} visits. Upgrade key room equipment.`);
@@ -150,6 +151,7 @@ export const runDay = (state: GameState): GameState => {
   if (dayOfWeek >= 5) notes.push(`Weekly liabilities due in ${daysUntilWeeklyCosts} day(s): $${Math.round(weeklyFixedCosts)}.`);
   if (!hasScheduledStaff) notes.push('No staff were scheduled today, so no patients were treated.');
   if (average(next.staff.map((staffMember) => staffMember.burnoutRisk)) > 0.5) notes.push('Burnout risk is rising. Use half/off shifts and stagger training to recover morale.');
+  if (visits.layoutFlow.congestionIndex > 1.35) notes.push(`Hallway congestion index ${visits.layoutFlow.congestionIndex.toFixed(2)} is slowing patient flow.`);
   if (next.operationalModifiers.note) notes.push(next.operationalModifiers.note);
 
   const summary: DaySummary = {
@@ -182,7 +184,18 @@ export const runDay = (state: GameState): GameState => {
       equipment: visits.equipmentBottlenecks,
       burnout: visits.burnoutPressure
     },
-    notes: [...notes, `Demand sources: new leads ${demand.leads}, returning booked ${demand.returningBooked}, referrals ${demand.referrals}.`]
+    notes: [...notes, `Demand sources: new leads ${demand.leads}, returning booked ${demand.returningBooked}, referrals ${demand.referrals}.`],
+    layoutFlow: {
+      avgTravelTiles: visits.layoutFlow.avgTravelTiles,
+      waitPenaltyMinutes: visits.layoutFlow.waitPenaltyMinutes,
+      throughputMultiplier: visits.layoutFlow.throughputMultiplier,
+      satisfactionPenalty: visits.layoutFlow.satisfactionPenalty,
+      staffEfficiencyMultiplier: visits.layoutFlow.staffEfficiencyMultiplier,
+      congestionIndex: visits.layoutFlow.congestionIndex,
+      warnings: visits.layoutFlow.warnings,
+      unreachableRoutes: visits.layoutFlow.unreachableRoutes,
+      heatmap: visits.layoutFlow.heatmap
+    }
   };
 
   next.latestSummary = summary;

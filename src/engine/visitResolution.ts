@@ -3,6 +3,7 @@ import { GameState, PatientArchetype, PatientVisit, RoomTypeId, ServiceId, Staff
 import { BALANCE, getDifficultyPreset, sumUpgradeEffect } from './simulationConfig';
 import { average, clamp, rand } from './utils';
 import { markCompletedVisit, markNoShowVisit, markWaitingVisit } from './patientTransitions';
+import { analyzeLayoutFlow } from './layoutFlow';
 
 const getArchetype = (id: string): PatientArchetype => PATIENT_ARCHETYPES.find((p) => p.id === id) ?? PATIENT_ARCHETYPES[0];
 const getService = (id: ServiceId) => SERVICES.find((s) => s.id === id) ?? SERVICES[0];
@@ -44,6 +45,7 @@ export interface VisitResolution {
   equipmentBottlenecks: number;
   burnoutPressure: number;
   resolvedVisits: PatientVisit[];
+  layoutFlow: ReturnType<typeof analyzeLayoutFlow>;
   journeyEvents: {
     patientId: string;
     result: 'completed' | 'noShow' | 'cancelled' | 'unserved';
@@ -64,8 +66,11 @@ const staffServiceFit = (staff: StaffMember, archetype: PatientArchetype, servic
 };
 
 export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity: number): VisitResolution => {
-  const processable = queue.slice(0, capacity);
-  const capacityLost = Math.max(0, queue.length - capacity);
+  const baselineProcessable = queue.slice(0, capacity);
+  const layoutFlow = analyzeLayoutFlow(state, baselineProcessable);
+  const effectiveCapacity = Math.max(0, Math.floor(capacity * layoutFlow.throughputMultiplier));
+  const processable = queue.slice(0, effectiveCapacity);
+  const capacityLost = Math.max(0, queue.length - effectiveCapacity);
   const noShowReduction = sumUpgradeEffect(state, (effects) => effects.noShowReduction);
   const qualityBonus = sumUpgradeEffect(state, (effects) => effects.qualityBonus);
   const premiumBonus = sumUpgradeEffect(state, (effects) => effects.premiumPricing);
@@ -103,7 +108,8 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
       continue;
     }
     const serviceRooms = state.rooms.filter((room) => room.type === service.requiredRoom);
-    if (serviceRooms.length === 0 || !hasRoom(state, service.requiredRoom)) {
+    const routeStats = layoutFlow.routeMap[service.requiredRoom];
+    if (serviceRooms.length === 0 || !hasRoom(state, service.requiredRoom) || !routeStats?.reachable) {
       roomBottlenecks += 1;
       cancellations += 1;
       journeyEvents.push({ patientId: visit.patientId, result: 'cancelled', wait: 0, outcome: 0, satisfaction: 0, service: visit.service });
@@ -136,16 +142,17 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
       continue;
     }
 
-    const wait = Math.max(0, (i + 1 - capacity * BALANCE.comfortCapacityRatio) * BALANCE.waitUnitMinutes);
+    const routeTravelPenalty = routeStats ? routeStats.totalSteps * 0.15 : 0;
+    const wait = Math.max(0, (i + 1 - capacity * BALANCE.comfortCapacityRatio) * BALANCE.waitUnitMinutes + layoutFlow.waitPenaltyMinutes + routeTravelPenalty);
     const matchingFocusedRoom = serviceRooms.filter((room) => room.focusService === service.id).length;
     const avgEquipment = average(serviceRooms.map((room) => room.equipmentLevel));
     const facilityFit = (avgEquipment - 1) * 0.08 * service.equipmentSensitivity + (matchingFocusedRoom / serviceRooms.length) * 0.06 * service.facilitySensitivity;
     if (service.equipmentSensitivity > 0.35 && avgEquipment < 1.6) equipmentBottlenecks += 1;
     const specialty = staffServiceFit(staff, archetype, service.id, service.requiredRoom);
     const burnoutPenalty = staff.burnoutRisk * 0.08;
-    const quality = clamp(staff.quality + service.qualityImpact + qualityBonus + specialty + facilityFit - burnoutPenalty - staff.fatigue / BALANCE.qualityFatigueDivisor, 0.2, 1.3);
+    const quality = clamp((staff.quality + service.qualityImpact + qualityBonus + specialty + facilityFit - burnoutPenalty - staff.fatigue / BALANCE.qualityFatigueDivisor) * layoutFlow.staffEfficiencyMultiplier, 0.2, 1.3);
     const outcome = clamp((quality * archetype.improvementSpeed + archetype.adherence * 0.25) * (1 - archetype.complexity * 0.35), 0, 1);
-    const satisfaction = clamp(0.7 + quality * 0.3 - (wait / 100) * archetype.satisfactionSensitivity, 0, 1.2);
+    const satisfaction = clamp(0.7 + quality * 0.3 - (wait / 100) * archetype.satisfactionSensitivity - layoutFlow.satisfactionPenalty, 0, 1.2);
 
     const payerMultiplier = visit.insured ? BALANCE.insuredRevenueMultiplier : BALANCE.selfPayRevenueMultiplier;
     revenue += service.baseRevenue * (1 + premiumBonus + facilityFit * 0.3) * payerMultiplier * preset.revenueMultiplier;
@@ -157,15 +164,15 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
     resolvedVisits.push(markCompletedVisit(visit));
     journeyEvents.push({ patientId: visit.patientId, result: 'completed', wait, outcome, satisfaction, service: visit.service });
 
-    const fatigueGain = service.fatigueImpact * BALANCE.fatigueServiceScale * (1 - staff.fatigueResistance * BALANCE.fatigueResistanceWeight);
+    const fatigueGain = service.fatigueImpact * BALANCE.fatigueServiceScale * (1 - staff.fatigueResistance * BALANCE.fatigueResistanceWeight) * (1 + (1 - layoutFlow.staffEfficiencyMultiplier));
     staff.fatigue = clamp(staff.fatigue + fatigueGain, 0, 100);
     staff.morale = clamp(staff.morale + (satisfaction - 0.6) * 5 + moraleGain * BALANCE.moraleGainScaling, 0, 100);
     burnoutPressure += staff.fatigue > 70 ? 1 : 0;
   }
 
-  for (const visit of queue.slice(capacity)) {
+  for (const visit of queue.slice(effectiveCapacity)) {
     journeyEvents.push({ patientId: visit.patientId, result: 'unserved', wait: 0, outcome: 0, satisfaction: 0, service: visit.service });
   }
 
-  return { revenue, variableCosts, adminLoad, totalWait, cancellations, noShows, attended, capacityLost, outcomes, staffingBottlenecks, roomBottlenecks, equipmentBottlenecks, burnoutPressure, resolvedVisits, journeyEvents };
+  return { revenue, variableCosts, adminLoad, totalWait, cancellations, noShows, attended, capacityLost, outcomes, staffingBottlenecks, roomBottlenecks, equipmentBottlenecks, burnoutPressure, resolvedVisits, layoutFlow, journeyEvents };
 };

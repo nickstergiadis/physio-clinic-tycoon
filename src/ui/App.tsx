@@ -14,7 +14,8 @@ import {
   startStaffTraining,
   toggleStaffSchedule,
   upgradeRoomEquipment,
-  repayLoan
+  repayLoan,
+  togglePathTile
 } from '../engine/simulation';
 import { deleteSlot, loadSettings, loadSlots, saveSettings, saveSlot } from '../engine/persistence';
 import { addCash, fastForwardDays, setHighNoShowMode, spawnSamplePatients } from '../engine/devTools';
@@ -80,7 +81,7 @@ export function App() {
   const [screen, setScreen] = useState<Screen>('menu');
   const [state, setState] = useState<GameState | null>(null);
   const [slots, setSlots] = useState<SaveSlot[]>([]);
-  const [selectedBuildRoom, setSelectedBuildRoom] = useState<RoomTypeId | null>(null);
+  const [selectedBuildRoom, setSelectedBuildRoom] = useState<RoomTypeId | 'path' | null>(null);
   const [selectedScenario, setSelectedScenario] = useState<ScenarioId>('community_rebuild');
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyPresetId>('standard');
   const [actionMessage, setActionMessage] = useState<string>('');
@@ -443,17 +444,19 @@ export function App() {
           <section className="grid-2">
             <article className="card">
               <h3>Layout (6x6)</h3>
-              <p>Capacity left: <strong>{emptyTiles}</strong> room slots. Select a room on the right, then click a + tile to place.</p>
+              <p>Capacity left: <strong>{emptyTiles}</strong> room slots. Select a room or path tool, then click tiles to shape flow.</p>
               <div className="layout-grid">
                 {Array.from({ length: 36 }).map((_, i) => {
                   const x = i % 6;
                   const y = Math.floor(i / 6);
                   const room = state.rooms.find((r) => r.x === x && r.y === y);
+                  const isPath = state.pathTiles.some((tile) => tile.x === x && tile.y === y);
+                  const heat = state.latestSummary?.layoutFlow?.heatmap.find((cell) => cell.x === x && cell.y === y)?.load ?? 0;
                   return (
                     <button
                       key={`${x}-${y}`}
-                      className={`cell ${room ? 'filled' : ''}`}
-                      title={room ? `${room.type} (click to remove)` : selectedBuildRoom ? `Place ${selectedBuildRoom}` : 'Select a room type first'}
+                      className={`cell ${room ? 'filled' : ''} ${isPath ? 'path-tile' : ''}`}
+                      title={room ? `${room.type} (click to remove)` : selectedBuildRoom === 'path' ? (isPath ? 'Remove path tile' : 'Paint path tile') : selectedBuildRoom ? `Place ${selectedBuildRoom}` : 'Select a room type first'}
                       onClick={() => {
                         if (room) {
                           const next = removeRoom(state, room.id);
@@ -466,12 +469,18 @@ export function App() {
                           setActionMessage('Select a room type first.');
                           return;
                         }
+                        if (selectedBuildRoom === 'path') {
+                          const next = togglePathTile(state, x, y);
+                          setState(next);
+                          setActionMessage(next === state ? 'Cannot place path on an occupied room tile.' : (isPath ? 'Removed path tile.' : 'Added path tile.'));
+                          return;
+                        }
                         const next = placeRoom(state, selectedBuildRoom, x, y);
                         setState(next);
-                        setActionMessage(next === state ? 'Cannot place room here (locked, full, occupied, or insufficient cash).' : `Placed ${selectedBuildRoom}.`);
+                        setActionMessage(next === state ? 'Cannot place room here (locked, full, occupied, path tile, or insufficient cash).' : `Placed ${selectedBuildRoom}.`);
                       }}
                     >
-                      {room ? ROOM_ABBR[room.type] : '+'}
+                      <span style={{ opacity: heat > 0 ? Math.max(0.28, heat) : 1 }}>{room ? ROOM_ABBR[room.type] : isPath ? '·' : '+'}</span>
                     </button>
                   );
                 })}
@@ -479,6 +488,17 @@ export function App() {
             </article>
             <article className="card">
               <h3>Build Rooms</h3>
+              <button
+                className={`build-option ${selectedBuildRoom === 'path' ? 'active' : ''}`}
+                onClick={() => setSelectedBuildRoom('path')}
+                title="Paint walkable hallway tiles"
+              >
+                <span>
+                  <strong>Path Tool</strong>
+                  <small>Paint walkable tiles between reception, waiting, and treatment zones.</small>
+                </span>
+                <span>{selectedBuildRoom === 'path' ? 'Selected' : 'Select'}</span>
+              </button>
               {ROOM_DEFS.map((room) => {
                 const unlocked = state.unlockedRooms.includes(room.id);
                 const affordable = state.cash >= room.cost;
@@ -498,6 +518,20 @@ export function App() {
                   </button>
                 );
               })}
+              <h4>Flow diagnostics</h4>
+              {state.latestSummary?.layoutFlow ? (
+                <div className="summary-box">
+                  <p>Avg travel: {state.latestSummary.layoutFlow.avgTravelTiles.toFixed(1)} tiles · congestion {state.latestSummary.layoutFlow.congestionIndex.toFixed(2)}</p>
+                  <p>Flow penalties: +{state.latestSummary.layoutFlow.waitPenaltyMinutes} min wait · throughput x{state.latestSummary.layoutFlow.throughputMultiplier.toFixed(2)} · staff x{state.latestSummary.layoutFlow.staffEfficiencyMultiplier.toFixed(2)}</p>
+                  {state.latestSummary.layoutFlow.warnings.length > 0 && (
+                    <ul>
+                      {state.latestSummary.layoutFlow.warnings.map((warning) => <li key={warning}>⚠ {warning}</li>)}
+                    </ul>
+                  )}
+                </div>
+              ) : (
+                <p><small>Run one day to see path and congestion heatmap overlay.</small></p>
+              )}
               <h4>Facility operations</h4>
               {state.rooms.map((room) => (
                 <div key={room.id} className="row card compact">
