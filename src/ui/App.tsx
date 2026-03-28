@@ -25,7 +25,7 @@ import { deleteSlot, loadSettings, loadSlots, saveSettings, saveSlot } from '../
 import { addCash, fastForwardDays, setHighNoShowMode, spawnSamplePatients } from '../engine/devTools';
 import { createInitialState } from '../engine/state';
 import { BookingPolicy, BuildItemId, DaySummary, DifficultyPresetId, GameMode, GameState, RoomTypeId, SaveSlot, ScenarioId, Screen, ServiceId, StaffRoleId, WeeklyReport } from '../types/game';
-import { objectiveStatus } from '../engine/campaign';
+import { getScenario, objectiveStatus } from '../engine/campaign';
 import { formatSignedCurrency, getClinicDrivers, getDemandPressure, getFinanceSnapshot, getStaffInsights } from './dashboard';
 import { getBuildItemPlacementError, getItemEffectTotals } from '../engine/buildItems';
 
@@ -235,6 +235,7 @@ export function App() {
   }
 
   if (screen === 'newGame') {
+    const selectedScenarioDef = getScenario(selectedScenario);
     return (
       <div className="shell panel">
         <h2>Choose Play Mode</h2>
@@ -266,7 +267,7 @@ export function App() {
             </select>
           </label>
         </div>
-        <p className="subtitle">{CAMPAIGN_SCENARIOS[selectedScenario].description}</p>
+        <p className="subtitle">{selectedScenarioDef.description}</p>
         <button className="ghost" onClick={() => setScreen('menu')}>Back</button>
       </div>
     );
@@ -354,8 +355,11 @@ export function App() {
   // Keep derived values as plain constants so no hook is declared below conditional returns.
   const campaignProgress = (() => {
     if (state.mode !== 'campaign') return null;
+    const scenario = getScenario(state.scenarioId);
     const trackedObjectives = objectiveStatus(state);
     return {
+      scenarioName: scenario.name,
+      startingLoanOffer: scenario.startingLoanOffer,
       week: `${state.week}/${state.campaignGoal.targetWeek}`,
       rep: `${state.reputation.toFixed(0)}/${state.campaignGoal.targetReputation}`,
       cash: `${Math.round(state.cash)}/${state.campaignGoal.targetCash}`,
@@ -614,7 +618,7 @@ export function App() {
               </ul>
               {campaignProgress && (
                 <div className="campaign-box">
-                  <h4>Campaign Goal ({CAMPAIGN_SCENARIOS[state.scenarioId].name})</h4>
+                  <h4>Campaign Goal ({campaignProgress.scenarioName})</h4>
                   <p>Week {campaignProgress.week}</p>
                   <p>Reputation {campaignProgress.rep}</p>
                   <p>Cash {campaignProgress.cash}</p>
@@ -1004,8 +1008,8 @@ export function App() {
                   <button disabled={state.cash < 1000} onClick={() => setState(repayLoan(state, Math.min(2000, Math.max(1000, state.cash * 0.1))))}>Repay $1k-$2k</button>
                 </>
               )}
-              {!state.loan && state.mode === 'campaign' && (
-                <button onClick={() => setState(takeLoan(state, CAMPAIGN_SCENARIOS[state.scenarioId].startingLoanOffer))}>Take scenario financing (${CAMPAIGN_SCENARIOS[state.scenarioId].startingLoanOffer})</button>
+              {!state.loan && state.mode === 'campaign' && campaignProgress && (
+                <button onClick={() => setState(takeLoan(state, campaignProgress.startingLoanOffer))}>Take scenario financing (${campaignProgress.startingLoanOffer})</button>
               )}
               {state.latestSummary && (
                 <>
