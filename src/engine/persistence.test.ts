@@ -50,6 +50,7 @@ describe('persistence', () => {
     expect(Array.isArray(slots[0].state.staff)).toBe(true);
     expect(slots[0].state.scenarioId).toBe('community_rebuild');
     expect(slots[0].state.difficultyPreset).toBe('standard');
+    expect(Array.isArray(slots[0].state.placedItems)).toBe(true);
   });
 
   it('persists settings', () => {

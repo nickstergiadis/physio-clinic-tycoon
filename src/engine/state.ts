@@ -68,6 +68,11 @@ export const createInitialState = (mode: GameMode, scenarioId: ScenarioId = DEFA
     { id: uid(), type: 'treatment', level: 1, equipmentLevel: 1, focusService: 'initialAssessment', x: 0, y: 1 },
     { id: uid(), type: 'gym', level: 1, equipmentLevel: 1, focusService: 'exerciseSession', x: 1, y: 1 }
   ],
+  placedItems: [
+    { id: uid(), itemId: 'waiting_chairs', x: 1, y: 0 },
+    { id: uid(), itemId: 'front_desk_pod', x: 0, y: 0 },
+    { id: uid(), itemId: 'wayfinding_sign', x: 2, y: 0 }
+  ],
   pathTiles: [
     { x: 2, y: 0 },
     { x: 2, y: 1 }

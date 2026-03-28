@@ -16,6 +16,15 @@ export type PatientArchetypeId =
 
 export type StaffRoleId = 'physio' | 'assistant' | 'frontDesk' | 'specialist';
 export type RoomTypeId = 'reception' | 'treatment' | 'gym' | 'waiting' | 'vestibularLab' | 'hydro';
+export type BuildItemCategory = 'waiting' | 'wayfinding' | 'frontDesk' | 'decor' | 'rehab' | 'admin' | 'breakroom';
+export type BuildItemId =
+  | 'waiting_chairs'
+  | 'wayfinding_sign'
+  | 'front_desk_pod'
+  | 'decor_plant'
+  | 'rehab_station'
+  | 'storage_wall'
+  | 'breakroom_corner';
 export type StaffTraitId = 'steady' | 'empathetic' | 'fastLearner' | 'resilient' | 'specialistMindset';
 export type ShiftType = 'off' | 'half' | 'full';
 export type ServiceId =
@@ -100,6 +109,36 @@ export interface RoomInstance {
   level: number;
   equipmentLevel: number;
   focusService: ServiceId | 'general';
+  x: number;
+  y: number;
+}
+
+export interface BuildItemDefinition {
+  id: BuildItemId;
+  name: string;
+  category: BuildItemCategory;
+  cost: number;
+  maintenance: number;
+  description: string;
+  placement: {
+    roomTypes?: RoomTypeId[];
+    allowOnPath?: boolean;
+    allowOnEmpty?: boolean;
+    requiresAdjacentRoomTypes?: RoomTypeId[];
+    maxPerTile?: number;
+  };
+  effects: {
+    waitingComfort?: number;
+    wayfinding?: number;
+    adminEfficiency?: number;
+    treatmentQuality?: number;
+    moraleRecovery?: number;
+  };
+}
+
+export interface PlacedBuildItem {
+  id: string;
+  itemId: BuildItemId;
   x: number;
   y: number;
 }
@@ -395,6 +434,7 @@ export interface GameState {
   unlockedServices: ServiceId[];
   staff: StaffMember[];
   rooms: RoomInstance[];
+  placedItems: PlacedBuildItem[];
   pathTiles: GridCoord[];
   patientQueue: PatientVisit[];
   patients: PersistentPatient[];

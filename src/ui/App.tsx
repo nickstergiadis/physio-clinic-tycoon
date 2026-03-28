@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
-import { CAMPAIGN_SCENARIOS, DIFFICULTY_PRESETS, ROOM_DEFS, SERVICES, STAFF_TEMPLATES, UPGRADES } from '../data/content';
+import { BUILD_ITEMS, CAMPAIGN_SCENARIOS, DIFFICULTY_PRESETS, ROOM_DEFS, SERVICES, STAFF_TEMPLATES, UPGRADES } from '../data/content';
 import {
   assignStaffRoom,
   buyUpgrade,
   fireStaff,
   hireStaff,
   placeRoom,
+  placeBuildItem,
   removeRoom,
+  removeBuildItem,
   runDay,
   setRoomFocus,
   setStaffShift,
@@ -21,9 +23,10 @@ import {
 import { deleteSlot, loadSettings, loadSlots, saveSettings, saveSlot } from '../engine/persistence';
 import { addCash, fastForwardDays, setHighNoShowMode, spawnSamplePatients } from '../engine/devTools';
 import { createInitialState } from '../engine/state';
-import { BookingPolicy, DaySummary, DifficultyPresetId, GameMode, GameState, RoomTypeId, SaveSlot, ScenarioId, Screen, ServiceId, StaffRoleId } from '../types/game';
+import { BookingPolicy, BuildItemId, DaySummary, DifficultyPresetId, GameMode, GameState, RoomTypeId, SaveSlot, ScenarioId, Screen, ServiceId, StaffRoleId } from '../types/game';
 import { objectiveStatus } from '../engine/campaign';
 import { formatSignedCurrency, getClinicDrivers, getDemandPressure, getFinanceSnapshot, getStaffInsights } from './dashboard';
+import { getBuildItemPlacementError, getItemEffectTotals } from '../engine/buildItems';
 
 const tabs: GameState['selectedTab'][] = ['overview', 'build', 'staff', 'patients', 'finance', 'upgrades'];
 const TAB_HELP: Record<GameState['selectedTab'], string> = {
@@ -88,7 +91,7 @@ export function App() {
   const [screen, setScreen] = useState<Screen>('menu');
   const [state, setState] = useState<GameState | null>(null);
   const [slots, setSlots] = useState<SaveSlot[]>([]);
-  const [selectedBuildRoom, setSelectedBuildRoom] = useState<RoomTypeId | 'path' | null>(null);
+  const [selectedBuildRoom, setSelectedBuildRoom] = useState<RoomTypeId | 'path' | BuildItemId | null>(null);
   const [selectedScenario, setSelectedScenario] = useState<ScenarioId>('community_rebuild');
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyPresetId>('standard');
   const [actionMessage, setActionMessage] = useState<string>('');
@@ -311,6 +314,8 @@ export function App() {
 
   const clinicianScheduled = state.staff.some((s) => s.scheduled && (s.role === 'physio' || s.role === 'assistant' || s.role === 'specialist'));
   const emptyTiles = state.maxClinicSize - state.rooms.length;
+  const itemEffects = getItemEffectTotals(state);
+  const isItemTool = selectedBuildRoom ? BUILD_ITEMS.some((item) => item.id === selectedBuildRoom) : false;
   const assignableRoomTypes = [...new Set(state.rooms.map((room) => room.type))];
   const financeSnapshot = getFinanceSnapshot(state);
   const staffInsights = getStaffInsights(state);
@@ -452,20 +457,28 @@ export function App() {
           <section className="grid-2">
             <article className="card">
               <h3>Layout (6x6)</h3>
-              <p>Capacity left: <strong>{emptyTiles}</strong> room slots. Select a room or path tool, then click tiles to shape flow.</p>
+              <p>Capacity left: <strong>{emptyTiles}</strong> room slots. Select a room, item, or path tool, then click tiles to shape flow.</p>
               <div className="layout-grid">
                 {Array.from({ length: 36 }).map((_, i) => {
                   const x = i % 6;
                   const y = Math.floor(i / 6);
                   const room = state.rooms.find((r) => r.x === x && r.y === y);
                   const isPath = state.pathTiles.some((tile) => tile.x === x && tile.y === y);
+                  const tileItems = state.placedItems.filter((item) => item.x === x && item.y === y);
                   const heat = state.latestSummary?.layoutFlow?.heatmap.find((cell) => cell.x === x && cell.y === y)?.load ?? 0;
                   return (
                     <button
                       key={`${x}-${y}`}
                       className={`cell ${room ? 'filled' : ''} ${isPath ? 'path-tile' : ''}`}
-                      title={room ? `${room.type} (click to remove)` : selectedBuildRoom === 'path' ? (isPath ? 'Remove path tile' : 'Paint path tile') : selectedBuildRoom ? `Place ${selectedBuildRoom}` : 'Select a room type first'}
+                      title={room ? `${room.type}${tileItems.length ? ` · items ${tileItems.length}` : ''}` : selectedBuildRoom === 'path' ? (isPath ? 'Remove path tile' : 'Paint path tile') : selectedBuildRoom ? `Place ${selectedBuildRoom}` : 'Select a room/item first'}
                       onClick={() => {
+                        if (isItemTool) {
+                          const next = placeBuildItem(state, selectedBuildRoom as BuildItemId, x, y);
+                          setState(next);
+                          const reason = getBuildItemPlacementError(state, selectedBuildRoom as BuildItemId, x, y);
+                          setActionMessage(next === state ? (reason ?? 'Cannot place item here.') : `Placed ${selectedBuildRoom}.`);
+                          return;
+                        }
                         if (room) {
                           const next = removeRoom(state, room.id);
                           setState(next);
@@ -474,7 +487,7 @@ export function App() {
                           return;
                         }
                         if (!selectedBuildRoom) {
-                          setActionMessage('Select a room type first.');
+                          setActionMessage('Select a room or item first.');
                           return;
                         }
                         if (selectedBuildRoom === 'path') {
@@ -483,19 +496,20 @@ export function App() {
                           setActionMessage(next === state ? 'Cannot place path on an occupied room tile.' : (isPath ? 'Removed path tile.' : 'Added path tile.'));
                           return;
                         }
-                        const next = placeRoom(state, selectedBuildRoom, x, y);
+                        const next = placeRoom(state, selectedBuildRoom as RoomTypeId, x, y);
                         setState(next);
                         setActionMessage(next === state ? 'Cannot place room here (locked, full, occupied, path tile, or insufficient cash).' : `Placed ${selectedBuildRoom}.`);
                       }}
                     >
                       <span style={{ opacity: heat > 0 ? Math.max(0.28, heat) : 1 }}>{room ? ROOM_ABBR[room.type] : isPath ? '·' : '+'}</span>
+                      {tileItems.length > 0 && <small className="cell-item-count">{tileItems.length}</small>}
                     </button>
                   );
                 })}
               </div>
             </article>
             <article className="card">
-              <h3>Build Rooms</h3>
+              <h3>Build Tools</h3>
               <button
                 className={`build-option ${selectedBuildRoom === 'path' ? 'active' : ''}`}
                 onClick={() => setSelectedBuildRoom('path')}
@@ -507,6 +521,7 @@ export function App() {
                 </span>
                 <span>{selectedBuildRoom === 'path' ? 'Selected' : 'Select'}</span>
               </button>
+              <h4>Rooms</h4>
               {ROOM_DEFS.map((room) => {
                 const unlocked = state.unlockedRooms.includes(room.id);
                 const affordable = state.cash >= room.cost;
@@ -524,6 +539,53 @@ export function App() {
                     </span>
                     <span>{!unlocked ? 'Locked' : !affordable ? 'Too Expensive' : 'Select'}</span>
                   </button>
+                );
+              })}
+              <h4>Placeable Items</h4>
+              {BUILD_ITEMS.map((item) => {
+                const affordable = state.cash >= item.cost;
+                const itemEffectsSummary = [
+                  item.effects.waitingComfort ? `Wait +${Math.round(item.effects.waitingComfort * 100)}%` : '',
+                  item.effects.wayfinding ? `Wayfinding +${Math.round(item.effects.wayfinding * 100)}%` : '',
+                  item.effects.adminEfficiency ? `Admin +${Math.round(item.effects.adminEfficiency * 100)}%` : '',
+                  item.effects.treatmentQuality ? `Quality +${Math.round(item.effects.treatmentQuality * 100)}%` : '',
+                  item.effects.moraleRecovery ? `Morale +${Math.round(item.effects.moraleRecovery * 100)}%` : ''
+                ].filter(Boolean).join(' · ');
+                return (
+                  <button
+                    key={item.id}
+                    className={`build-option ${selectedBuildRoom === item.id ? 'active' : ''}`}
+                    disabled={!affordable}
+                    onClick={() => setSelectedBuildRoom(item.id)}
+                    title={!affordable ? 'Insufficient cash' : item.description}
+                  >
+                    <span>
+                      <strong>{item.name}</strong>
+                      <small>${item.cost} · maintenance ${item.maintenance}/day · {itemEffectsSummary || 'Operational boost'}</small>
+                      <small>{item.description}</small>
+                    </span>
+                    <span>{!affordable ? 'Too Expensive' : 'Select'}</span>
+                  </button>
+                );
+              })}
+              <h4>Item bonus totals</h4>
+              <div className="summary-box">
+                <p>Waiting comfort +{Math.round(itemEffects.waitingComfort * 100)}% · Wayfinding +{Math.round(itemEffects.wayfinding * 100)}%</p>
+                <p>Admin efficiency +{Math.round(itemEffects.adminEfficiency * 100)}% · Treatment quality +{Math.round(itemEffects.treatmentQuality * 100)}%</p>
+                <p>Morale/fatigue recovery +{Math.round(itemEffects.moraleRecovery * 100)}%</p>
+              </div>
+              <h4>Placed items</h4>
+              {state.placedItems.length === 0 && <p><small>No placeable items installed yet.</small></p>}
+              {state.placedItems.map((placed) => {
+                const itemDef = BUILD_ITEMS.find((item) => item.id === placed.itemId);
+                return (
+                  <div key={placed.id} className="row card compact">
+                    <div>
+                      <strong>{itemDef?.name ?? placed.itemId}</strong>
+                      <div><small>Tile ({placed.x}, {placed.y}) · maintenance ${itemDef?.maintenance ?? 0}/day</small></div>
+                    </div>
+                    <button className="danger" onClick={() => setState(removeBuildItem(state, placed.id))}>Remove</button>
+                  </div>
                 );
               })}
               <h4>Flow diagnostics</h4>

@@ -1,11 +1,13 @@
 import { ROOM_DEFS } from '../data/content';
 import { DaySummary, GameState } from '../types/game';
 import { getDifficultyPreset } from './simulationConfig';
+import { getBuildItemMaintenancePerDay } from './buildItems';
 
 export const totalWeeklyFixedCosts = (state: GameState): number => {
   const payroll = state.staff.reduce((sum, staffMember) => sum + staffMember.wage, 0) * 7;
   const roomMaintenance = state.rooms.reduce((sum, room) => sum + (ROOM_DEFS.find((def) => def.id === room.type)?.maintenance ?? 0), 0) * 7;
-  return payroll + state.rent * 7 + state.equipmentCost * 7 + roomMaintenance;
+  const itemMaintenance = getBuildItemMaintenancePerDay(state) * 7;
+  return payroll + state.rent * 7 + state.equipmentCost * 7 + roomMaintenance + itemMaintenance;
 };
 
 export interface DailyEconomy {

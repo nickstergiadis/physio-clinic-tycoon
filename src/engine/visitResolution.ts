@@ -5,6 +5,7 @@ import { average, clamp, rand } from './utils';
 import { markCompletedVisit, markNoShowVisit, markWaitingVisit } from './patientTransitions';
 import { analyzeLayoutFlow } from './layoutFlow';
 import { DAY_START_MINUTE, SLOT_MINUTES, getFrontDeskEfficiency, summarizeSlotUsage } from './queueManagement';
+import { getItemEffectTotals } from './buildItems';
 
 const getArchetype = (id: string): PatientArchetype => PATIENT_ARCHETYPES.find((p) => p.id === id) ?? PATIENT_ARCHETYPES[0];
 const getService = (id: ServiceId) => SERVICES.find((s) => s.id === id) ?? SERVICES[0];
@@ -12,6 +13,7 @@ const hasRoom = (state: GameState, roomType: RoomTypeId): boolean => state.rooms
 const shiftCapacityFactor = (shift: StaffMember['shift']): number => (shift === 'full' ? 1 : shift === 'half' ? 0.62 : 0);
 
 export const treatmentCapacity = (state: GameState): number => {
+  const itemEffects = getItemEffectTotals(state);
   const activeStaff = state.staff.filter((staffMember) => staffMember.scheduled);
   const staffCapacity = activeStaff.reduce(
     (sum, staffMember) =>
@@ -28,7 +30,8 @@ export const treatmentCapacity = (state: GameState): number => {
     return sum + (def?.throughputBonus ?? 0) * BALANCE.roomThroughputUnit * (1 + (room.equipmentLevel - 1) * 0.08);
   }, 0);
   const overcrowdPenalty = state.rooms.length < BALANCE.overcrowdThreshold ? BALANCE.overcrowdPenalty : 1;
-  return Math.max(0, Math.floor((staffCapacity + roomBonus) * overcrowdPenalty));
+  const wayfindingThroughput = 1 + itemEffects.wayfinding * 0.4;
+  return Math.max(0, Math.floor((staffCapacity + roomBonus) * overcrowdPenalty * wayfindingThroughput));
 };
 
 export interface VisitResolution {
@@ -86,12 +89,13 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
   const qualityBonus = sumUpgradeEffect(state, (effects) => effects.qualityBonus);
   const premiumBonus = sumUpgradeEffect(state, (effects) => effects.premiumPricing);
   const moraleGain = sumUpgradeEffect(state, (effects) => effects.moraleGain);
+  const itemEffects = getItemEffectTotals(state);
 
   const preset = getDifficultyPreset(state.difficultyPreset);
   const staffPool = state.staff.filter((staffMember) => staffMember.scheduled);
   const hasScheduledStaff = staffPool.length > 0;
   const modifier = state.operationalModifiers;
-  const frontDeskEfficiency = getFrontDeskEfficiency(state);
+  const frontDeskEfficiency = clamp(getFrontDeskEfficiency(state) + itemEffects.adminEfficiency * 0.22, 0.2, 1.3);
   const slotSummary = summarizeSlotUsage(queue, state.bookingPolicy);
   const schedule = {
     queueLengthPeak: 0,
@@ -175,21 +179,31 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
 
     const routeTravelPenalty = routeStats ? routeStats.totalSteps * 0.15 : 0;
     const scheduleDelay = clamp(Math.max(0, runningClock - visit.scheduledMinute), 0, 90);
-    const wait = Math.max(0, scheduleDelay * 0.45 + (i + 1 - capacity * BALANCE.comfortCapacityRatio) * BALANCE.waitUnitMinutes + layoutFlow.waitPenaltyMinutes + routeTravelPenalty);
+    const comfortRelief = 1 - clamp(itemEffects.waitingComfort, 0, 0.22);
+    const wayfindingRelief = 1 - clamp(itemEffects.wayfinding, 0, 0.2);
+    const wait = Math.max(
+      0,
+      (scheduleDelay * 0.45 + (i + 1 - capacity * BALANCE.comfortCapacityRatio) * BALANCE.waitUnitMinutes + layoutFlow.waitPenaltyMinutes + routeTravelPenalty) * comfortRelief * wayfindingRelief
+    );
     const matchingFocusedRoom = serviceRooms.filter((room) => room.focusService === service.id).length;
     const avgEquipment = average(serviceRooms.map((room) => room.equipmentLevel));
     const facilityFit = (avgEquipment - 1) * 0.08 * service.equipmentSensitivity + (matchingFocusedRoom / serviceRooms.length) * 0.06 * service.facilitySensitivity;
     if (service.equipmentSensitivity > 0.35 && avgEquipment < 1.6) equipmentBottlenecks += 1;
     const specialty = staffServiceFit(staff, archetype, service.id, service.requiredRoom);
     const burnoutPenalty = staff.burnoutRisk * 0.08;
-    const quality = clamp((staff.quality + service.qualityImpact + qualityBonus + specialty + facilityFit - burnoutPenalty - staff.fatigue / BALANCE.qualityFatigueDivisor) * layoutFlow.staffEfficiencyMultiplier, 0.2, 1.3);
+    const quality = clamp(
+      (staff.quality + service.qualityImpact + qualityBonus + specialty + facilityFit + itemEffects.treatmentQuality - burnoutPenalty - staff.fatigue / BALANCE.qualityFatigueDivisor) *
+        layoutFlow.staffEfficiencyMultiplier,
+      0.2,
+      1.3
+    );
     const outcome = clamp((quality * archetype.improvementSpeed + archetype.adherence * 0.25) * (1 - archetype.complexity * 0.35), 0, 1);
     const satisfaction = clamp(0.7 + quality * 0.3 - (wait / 100) * archetype.satisfactionSensitivity - layoutFlow.satisfactionPenalty, 0, 1.2);
 
     const payerMultiplier = visit.insured ? BALANCE.insuredRevenueMultiplier : BALANCE.selfPayRevenueMultiplier;
     revenue += service.baseRevenue * (1 + premiumBonus + facilityFit * 0.3) * payerMultiplier * preset.revenueMultiplier;
     variableCosts += (service.baseRevenue * 0.14 + service.duration * 0.7) * (1 + modifier.variableCostShift);
-    adminLoad += service.adminLoad + archetype.adminBurden;
+    adminLoad += (service.adminLoad + archetype.adminBurden) * (1 - clamp(itemEffects.adminEfficiency, 0, 0.3));
     totalWait += wait;
     outcomes.push(outcome);
     attended += 1;
@@ -204,7 +218,7 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
 
     const fatigueGain = service.fatigueImpact * BALANCE.fatigueServiceScale * (1 - staff.fatigueResistance * BALANCE.fatigueResistanceWeight) * (1 + (1 - layoutFlow.staffEfficiencyMultiplier));
     staff.fatigue = clamp(staff.fatigue + fatigueGain, 0, 100);
-    staff.morale = clamp(staff.morale + (satisfaction - 0.6) * 5 + moraleGain * BALANCE.moraleGainScaling, 0, 100);
+    staff.morale = clamp(staff.morale + (satisfaction - 0.6) * 5 + (moraleGain + itemEffects.moraleRecovery * 100) * BALANCE.moraleGainScaling, 0, 100);
     burnoutPressure += staff.fatigue > 70 ? 1 : 0;
   }
 

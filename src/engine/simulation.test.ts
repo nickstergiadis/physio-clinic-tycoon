@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialState } from './state';
-import { assignStaffRoom, buyUpgrade, fireStaff, generatePatients, hireStaff, placeRoom, runDay, startStaffTraining, toggleStaffSchedule } from './simulation';
+import { assignStaffRoom, buyUpgrade, fireStaff, generatePatients, hireStaff, placeBuildItem, placeRoom, runDay, startStaffTraining, toggleStaffSchedule } from './simulation';
 
 describe('simulation core loop', () => {
   it('generates patient queue with meaningful size', () => {
@@ -35,6 +35,16 @@ describe('simulation core loop', () => {
     const next = placeRoom(state, 'treatment', 4, 4);
     expect(next.rooms.length).toBe(state.rooms.length + 1);
     expect(next.cash).toBeLessThan(state.cash);
+  });
+
+  it('places build items with placement rules and grants bonuses', () => {
+    let state = createInitialState('sandbox');
+    const starting = state.placedItems.length;
+    state = placeBuildItem(state, 'waiting_chairs', 1, 0);
+    expect(state.placedItems.length).toBe(starting + 1);
+
+    const invalid = placeBuildItem(state, 'front_desk_pod', 1, 0);
+    expect(invalid).toBe(state);
   });
 
   it('new game flow starts paused and can complete first day', () => {

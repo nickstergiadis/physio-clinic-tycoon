@@ -8,6 +8,7 @@ import { buildWeeklyLedger, resolveDailyEconomy, totalWeeklyFixedCosts } from '.
 import { resolveVisits, treatmentCapacity } from './visitResolution';
 import { buildDailyPatientFlow, updatePatientJourneys } from './patientJourney';
 import { baseScheduleMetrics } from './queueManagement';
+import { getItemEffectTotals } from './buildItems';
 
 interface DemandBuild {
   leads: number;
@@ -62,9 +63,12 @@ export const runDay = (state: GameState): GameState => {
   const utilization = capacity > 0 ? clamp(visits.attended / capacity, 0, 1.4) : 0;
 
   const adminReduction = sumUpgradeEffect(next, (effects) => effects.adminReduction);
+  const itemEffects = getItemEffectTotals(next);
   const docs = Math.max(
     0,
-    next.backlogDocs + visits.adminLoad * (1 - adminReduction * BALANCE.adminReductionWeight) - next.staff.reduce((sum, staffMember) => sum + staffMember.documentation, 0) * BALANCE.documentationThroughput
+    next.backlogDocs +
+      visits.adminLoad * (1 - adminReduction * BALANCE.adminReductionWeight) * (1 - Math.min(0.28, itemEffects.adminEfficiency)) -
+      next.staff.reduce((sum, staffMember) => sum + staffMember.documentation, 0) * BALANCE.documentationThroughput
   );
   const docsPenalty = docs > BALANCE.docsPenaltyThreshold ? (docs - BALANCE.docsPenaltyThreshold) * BALANCE.docsPenaltyUnit : 0;
   const variableCosts = visits.variableCosts + docsPenalty;
@@ -95,11 +99,15 @@ export const runDay = (state: GameState): GameState => {
     scheduled: staffMember.trainingDaysRemaining > 0 ? false : staffMember.scheduled,
     shift: staffMember.trainingDaysRemaining > 0 ? 'off' : staffMember.shift,
     fatigue: clamp(
-      staffMember.fatigue - BALANCE.dailyFatigueRecovery + (1 - staffMember.fatigueResistance) * BALANCE.lowResistanceRecoveryPenalty + (staffMember.shift === 'full' ? 1.4 : 0) + visits.schedule.spilloverMinutes / 180,
+      staffMember.fatigue - BALANCE.dailyFatigueRecovery - itemEffects.moraleRecovery * 8 + (1 - staffMember.fatigueResistance) * BALANCE.lowResistanceRecoveryPenalty + (staffMember.shift === 'full' ? 1.4 : 0) + visits.schedule.spilloverMinutes / 180,
       0,
       100
     ),
-    morale: clamp(staffMember.morale + (staffMember.shift === 'off' ? 2.2 : 0) - (staffMember.fatigue > 78 ? 1.5 : 0) - visits.schedule.missedAppointments * 0.08, 0, 100),
+    morale: clamp(
+      staffMember.morale + (staffMember.shift === 'off' ? 2.2 : 0) + itemEffects.moraleRecovery * 6 - (staffMember.fatigue > 78 ? 1.5 : 0) - visits.schedule.missedAppointments * 0.08,
+      0,
+      100
+    ),
     burnoutRisk: clamp(
       staffMember.burnoutRisk + (staffMember.fatigue > 80 ? 0.03 : -0.015) + (staffMember.shift === 'off' ? -0.02 : 0),
       0,
