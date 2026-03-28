@@ -51,6 +51,7 @@ button.danger { background: #c44747; }
 .layout-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.35rem; }
 .cell { aspect-ratio: 1/1; border-radius: 8px; background: #dde9f2; color: #1f3d53; }
 .cell.filled { background: #8ecae6; color: #08334f; font-weight: 700; }
+.cell.path-tile { background: #f7dd9b; color: #6f4e07; }
 .build-option { width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem; }
 .build-option span { display: grid; gap: 0.15rem; }
 .build-option small { color: #d9efff; line-height: 1.3; }

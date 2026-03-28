@@ -243,6 +243,24 @@ export interface EventCard {
   apply: (state: GameState) => GameState;
 }
 
+
+export interface GridCoord {
+  x: number;
+  y: number;
+}
+
+export interface LayoutFlowSummary {
+  avgTravelTiles: number;
+  waitPenaltyMinutes: number;
+  throughputMultiplier: number;
+  satisfactionPenalty: number;
+  staffEfficiencyMultiplier: number;
+  congestionIndex: number;
+  warnings: string[];
+  unreachableRoutes: number;
+  heatmap: Array<GridCoord & { load: number }>;
+}
+
 export interface PatientVisit {
   id: string;
   patientId: string;
@@ -305,6 +323,7 @@ export interface DaySummary {
     burnout: number;
   };
   notes: string[];
+  layoutFlow?: LayoutFlowSummary;
 }
 
 export interface WeeklyLedger {
@@ -354,6 +373,7 @@ export interface GameState {
   unlockedServices: ServiceId[];
   staff: StaffMember[];
   rooms: RoomInstance[];
+  pathTiles: GridCoord[];
   patientQueue: PatientVisit[];
   patients: PersistentPatient[];
   demandSnapshot: {

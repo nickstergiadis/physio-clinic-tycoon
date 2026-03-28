@@ -119,6 +119,7 @@ export const placeRoom = (state: GameState, roomType: RoomTypeId, x: number, y: 
   const def = ROOM_DEFS.find((d) => d.id === roomType);
   if (!def || !state.unlockedRooms.includes(roomType) || state.rooms.length >= state.maxClinicSize) return state;
   if (state.rooms.some((r) => r.x === x && r.y === y)) return state;
+  if (state.pathTiles.some((tile) => tile.x === x && tile.y === y)) return state;
   if (state.cash < def.cost) return state;
   if (def.requiredUpgrade && !state.unlockedUpgrades.includes(def.requiredUpgrade)) return state;
 
@@ -127,6 +128,16 @@ export const placeRoom = (state: GameState, roomType: RoomTypeId, x: number, y: 
     cash: state.cash - def.cost,
     rooms: [...state.rooms, { id: uid(), type: roomType, level: 1, equipmentLevel: 1, focusService: 'general', x, y }],
     clinicSize: state.clinicSize + 1
+  };
+};
+
+
+export const togglePathTile = (state: GameState, x: number, y: number): GameState => {
+  if (state.rooms.some((room) => room.x === x && room.y === y)) return state;
+  const exists = state.pathTiles.some((tile) => tile.x === x && tile.y === y);
+  return {
+    ...state,
+    pathTiles: exists ? state.pathTiles.filter((tile) => tile.x !== x || tile.y !== y) : [...state.pathTiles, { x, y }]
   };
 };
 
