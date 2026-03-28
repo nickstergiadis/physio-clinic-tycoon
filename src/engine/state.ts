@@ -30,13 +30,14 @@ const makeStaff = (role: StaffRoleId, name: string, wage: number, trait: StaffTr
 
 export const createInitialState = (mode: GameMode, scenarioId: ScenarioId = DEFAULT_SCENARIO_ID, difficultyPreset?: DifficultyPresetId): GameState => {
   const scenario = getScenario(scenarioId);
+  const resolvedScenarioId = scenario.id;
   const resolvedDifficulty = difficultyPreset ?? (mode === 'sandbox' ? 'relaxed' : 'standard');
 
   return ({
   version: SAVE_VERSION,
   seed: Date.now() % 100000,
   mode,
-  scenarioId,
+  scenarioId: resolvedScenarioId,
   difficultyPreset: resolvedDifficulty,
   day: 1,
   week: 1,

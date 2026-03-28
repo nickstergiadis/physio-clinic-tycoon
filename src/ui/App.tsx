@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BUILD_ITEMS, CAMPAIGN_SCENARIOS, DIFFICULTY_PRESETS, ROOM_DEFS, SERVICES, STAFF_TEMPLATES, UPGRADES } from '../data/content';
 import {
   assignStaffRoom,
@@ -25,7 +25,7 @@ import { deleteSlot, loadSettings, loadSlots, saveSettings, saveSlot } from '../
 import { addCash, fastForwardDays, setHighNoShowMode, spawnSamplePatients } from '../engine/devTools';
 import { createInitialState } from '../engine/state';
 import { BookingPolicy, BuildItemId, DaySummary, DifficultyPresetId, GameMode, GameState, RoomTypeId, SaveSlot, ScenarioId, Screen, ServiceId, StaffRoleId, WeeklyReport } from '../types/game';
-import { objectiveStatus } from '../engine/campaign';
+import { getScenario, objectiveStatus } from '../engine/campaign';
 import { formatSignedCurrency, getClinicDrivers, getDemandPressure, getFinanceSnapshot, getStaffInsights } from './dashboard';
 import { getBuildItemPlacementError, getItemEffectTotals } from '../engine/buildItems';
 
@@ -235,6 +235,7 @@ export function App() {
   }
 
   if (screen === 'newGame') {
+    const selectedScenarioDef = getScenario(selectedScenario);
     return (
       <div className="shell panel">
         <h2>Choose Play Mode</h2>
@@ -266,7 +267,7 @@ export function App() {
             </select>
           </label>
         </div>
-        <p className="subtitle">{CAMPAIGN_SCENARIOS[selectedScenario].description}</p>
+        <p className="subtitle">{selectedScenarioDef.description}</p>
         <button className="ghost" onClick={() => setScreen('menu')}>Back</button>
       </div>
     );
@@ -354,8 +355,11 @@ export function App() {
   // Keep derived values as plain constants so no hook is declared below conditional returns.
   const campaignProgress = (() => {
     if (state.mode !== 'campaign') return null;
+    const scenario = getScenario(state.scenarioId);
     const trackedObjectives = objectiveStatus(state);
     return {
+      scenarioName: scenario.name,
+      startingLoanOffer: scenario.startingLoanOffer,
       week: `${state.week}/${state.campaignGoal.targetWeek}`,
       rep: `${state.reputation.toFixed(0)}/${state.campaignGoal.targetReputation}`,
       cash: `${Math.round(state.cash)}/${state.campaignGoal.targetCash}`,
@@ -377,10 +381,10 @@ export function App() {
   const itemEffects = getItemEffectTotals(state);
   const isItemTool = selectedBuildRoom ? BUILD_ITEMS.some((item) => item.id === selectedBuildRoom) : false;
   const assignableRoomTypes = [...new Set(state.rooms.map((room) => room.type))];
-  const financeSnapshot = useMemo(() => getFinanceSnapshot(state), [state]);
-  const staffInsights = useMemo(() => getStaffInsights(state), [state]);
-  const demandPressure = useMemo(() => getDemandPressure(state.latestSummary), [state.latestSummary]);
-  const clinicDrivers = useMemo(() => getClinicDrivers(state), [state]);
+  const financeSnapshot = getFinanceSnapshot(state);
+  const staffInsights = getStaffInsights(state);
+  const demandPressure = getDemandPressure(state.latestSummary);
+  const clinicDrivers = getClinicDrivers(state);
   const topServiceLines = state.latestSummary?.serviceLinePerformance ?? [];
   const bestServiceLines = topServiceLines.filter((line) => line.attended > 0).slice(0, 3);
   const worstServiceLines = [...topServiceLines].sort((a, b) => (b.failures - b.attended * 0.4) - (a.failures - a.attended * 0.4)).slice(0, 3);
@@ -614,7 +618,7 @@ export function App() {
               </ul>
               {campaignProgress && (
                 <div className="campaign-box">
-                  <h4>Campaign Goal ({CAMPAIGN_SCENARIOS[state.scenarioId].name})</h4>
+                  <h4>Campaign Goal ({campaignProgress.scenarioName})</h4>
                   <p>Week {campaignProgress.week}</p>
                   <p>Reputation {campaignProgress.rep}</p>
                   <p>Cash {campaignProgress.cash}</p>
@@ -1004,8 +1008,8 @@ export function App() {
                   <button disabled={state.cash < 1000} onClick={() => setState(repayLoan(state, Math.min(2000, Math.max(1000, state.cash * 0.1))))}>Repay $1k-$2k</button>
                 </>
               )}
-              {!state.loan && state.mode === 'campaign' && (
-                <button onClick={() => setState(takeLoan(state, CAMPAIGN_SCENARIOS[state.scenarioId].startingLoanOffer))}>Take scenario financing (${CAMPAIGN_SCENARIOS[state.scenarioId].startingLoanOffer})</button>
+              {!state.loan && state.mode === 'campaign' && campaignProgress && (
+                <button onClick={() => setState(takeLoan(state, campaignProgress.startingLoanOffer))}>Take scenario financing (${campaignProgress.startingLoanOffer})</button>
               )}
               {state.latestSummary && (
                 <>
