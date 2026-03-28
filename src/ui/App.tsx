@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BUILD_ITEMS, CAMPAIGN_SCENARIOS, DIFFICULTY_PRESETS, ROOM_DEFS, SERVICES, STAFF_TEMPLATES, UPGRADES } from '../data/content';
 import {
   assignStaffRoom,
@@ -377,10 +377,10 @@ export function App() {
   const itemEffects = getItemEffectTotals(state);
   const isItemTool = selectedBuildRoom ? BUILD_ITEMS.some((item) => item.id === selectedBuildRoom) : false;
   const assignableRoomTypes = [...new Set(state.rooms.map((room) => room.type))];
-  const financeSnapshot = useMemo(() => getFinanceSnapshot(state), [state]);
-  const staffInsights = useMemo(() => getStaffInsights(state), [state]);
-  const demandPressure = useMemo(() => getDemandPressure(state.latestSummary), [state.latestSummary]);
-  const clinicDrivers = useMemo(() => getClinicDrivers(state), [state]);
+  const financeSnapshot = getFinanceSnapshot(state);
+  const staffInsights = getStaffInsights(state);
+  const demandPressure = getDemandPressure(state.latestSummary);
+  const clinicDrivers = getClinicDrivers(state);
   const topServiceLines = state.latestSummary?.serviceLinePerformance ?? [];
   const bestServiceLines = topServiceLines.filter((line) => line.attended > 0).slice(0, 3);
   const worstServiceLines = [...topServiceLines].sort((a, b) => (b.failures - b.attended * 0.4) - (a.failures - a.attended * 0.4)).slice(0, 3);
