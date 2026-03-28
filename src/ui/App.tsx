@@ -18,7 +18,8 @@ import {
   upgradeRoomEquipment,
   repayLoan,
   togglePathTile,
-  setBookingPolicy
+  setBookingPolicy,
+  chooseIncidentDecision
 } from '../engine/simulation';
 import { deleteSlot, loadSettings, loadSlots, saveSettings, saveSlot } from '../engine/persistence';
 import { addCash, fastForwardDays, setHighNoShowMode, spawnSamplePatients } from '../engine/devTools';
@@ -404,6 +405,38 @@ export function App() {
               <p>Booked visits in pipeline: {state.patientQueue.length}</p>
               <p>Booking policy: <strong>{POLICY_LABELS[state.bookingPolicy]}</strong></p>
               <p>Utilization (latest day): {state.demandSnapshot.utilization.toFixed(1)}%</p>
+              {state.activeIncidents.length > 0 && (
+                <div className="summary-box">
+                  <h4>Active Incidents</h4>
+                  {state.activeIncidents.map((incident) => (
+                    <div key={incident.id} className="incident-card">
+                      <strong>{incident.name}</strong>
+                      <small>{incident.description}</small>
+                      <small>Timer: {incident.daysRemaining} day(s) remaining · Effect: {incident.effectsSummary}</small>
+                      {incident.pendingDecision && (
+                        <div className="incident-decision">
+                          <small><strong>Decision:</strong> {incident.pendingDecision.prompt}</small>
+                          <div className="row">
+                            {incident.pendingDecision.options.map((option) => (
+                              <button
+                                key={`${incident.id}-${option.id}`}
+                                className="ghost"
+                                onClick={() => {
+                                  const next = chooseIncidentDecision(state, incident.id, option.id);
+                                  setState(next);
+                                  setActionMessage(`${incident.name}: ${option.label}`);
+                                }}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
               {!clinicianScheduled && <p className="warn">⚠ No clinician scheduled. Patients cannot be treated.</p>}
               {state.settings.showTutorialHints && state.week <= 2 && (
                 <div className="hint-box">

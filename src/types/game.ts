@@ -285,6 +285,50 @@ export interface EventCard {
   apply: (state: GameState) => GameState;
 }
 
+export interface IncidentEffect {
+  cash?: number;
+  reputation?: number;
+  referrals?: number;
+  backlogDocs?: number;
+  equipmentCost?: number;
+  rent?: number;
+  moraleShift?: number;
+  fatigueShift?: number;
+  dailyCash?: number;
+  dailyReputation?: number;
+  dailyReferrals?: number;
+  dailyBacklogDocs?: number;
+  dailyMoraleShift?: number;
+  dailyFatigueShift?: number;
+  modifierPatch?: Partial<GameState['operationalModifiers']>;
+}
+
+export interface IncidentDecisionOption {
+  id: string;
+  label: string;
+  description: string;
+  effects?: IncidentEffect;
+  addOngoingEffects?: IncidentEffect;
+}
+
+export interface ActiveIncident {
+  id: string;
+  chainId: string;
+  name: string;
+  description: string;
+  startedDay: number;
+  daysRemaining: number;
+  stage: 'trigger' | 'ongoing' | 'resolution';
+  effectsSummary: string;
+  ongoingEffects: IncidentEffect;
+  pendingDecision?: {
+    stage: 'trigger' | 'resolution';
+    prompt: string;
+    options: IncidentDecisionOption[];
+    defaultOptionId: string;
+  };
+}
+
 
 export interface GridCoord {
   x: number;
@@ -501,6 +545,7 @@ export interface GameState {
   fatigueIndex: number;
   latestSummary?: DaySummary;
   latestSchedule: ScheduleMetrics;
+  activeIncidents: ActiveIncident[];
   eventLog: string[];
   campaignGoal: {
     targetWeek: number;

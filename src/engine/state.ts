@@ -108,6 +108,7 @@ export const createInitialState = (mode: GameMode, scenarioId: ScenarioId = DEFA
   fatigueIndex: 0.2,
   latestSummary: undefined,
   latestSchedule: baseScheduleMetrics('balanced'),
+  activeIncidents: [],
   eventLog: ['Welcome to Physiotherapy Clinic Tycoon.'],
   campaignGoal: {
     targetWeek: mode === 'sandbox' ? 0 : Math.max(...scenario.objectives.map((objective) => objective.deadlineWeek)),

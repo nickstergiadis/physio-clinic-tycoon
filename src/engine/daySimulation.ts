@@ -1,6 +1,6 @@
 import { DaySummary, DiagnosticCategory, GameState, InsightSeverity, PatientVisit, ThoughtInsight } from '../types/game';
 import { average, clamp } from './utils';
-import { applyRandomEvent } from './events';
+import { applyDailyIncidents, settleIncidentsAfterDay } from './events';
 import { BALANCE, getDifficultyPreset, sumUpgradeEffect } from './simulationConfig';
 import { applyReputationTiers, evaluateObjectives, getScenario, isScenarioFailed, isScenarioWon } from './campaign';
 import { calculateDemandInputs } from './demandGeneration';
@@ -150,7 +150,7 @@ export const runDay = (state: GameState): GameState => {
     operationalModifiers: { ...state.operationalModifiers }
   };
 
-  next = applyRandomEvent(next);
+  next = applyDailyIncidents(next);
 
   const demand = buildDailyDemand(next);
   const capacity = treatmentCapacity(next);
@@ -374,6 +374,7 @@ export const runDay = (state: GameState): GameState => {
 
   next = applyReputationTiers(next);
   next = evaluateObjectives(next);
+  next = settleIncidentsAfterDay(next);
 
   const mandatoryObjectivesMet = isScenarioWon(next);
   const deadlineReached = next.week >= next.campaignGoal.targetWeek;

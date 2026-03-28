@@ -4,6 +4,7 @@ import { uid } from './utils';
 import { generatePatients, runDay } from './daySimulation';
 import { getDifficultyPreset } from './simulationConfig';
 import { getBuildItemDef, getBuildItemPlacementError } from './buildItems';
+import { applyIncidentDecision } from './events';
 
 export { generatePatients, runDay };
 const STAFF_TRAITS: StaffTraitId[] = ['steady', 'empathetic', 'fastLearner', 'resilient', 'specialistMindset'];
@@ -236,3 +237,5 @@ export const setBookingPolicy = (state: GameState, policy: BookingPolicy): GameS
     eventLog: [`Booking policy set to ${policy}.`, ...state.eventLog].slice(0, 12)
   };
 };
+
+export const chooseIncidentDecision = (state: GameState, incidentId: string, optionId: string): GameState => applyIncidentDecision(state, incidentId, optionId);

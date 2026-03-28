@@ -78,7 +78,26 @@ describe('persistence', () => {
       lifetimeStats: {
         attendedVisits: 120,
         avgOutcomeRolling: 0.64
-      }
+      },
+      activeIncidents: [
+        {
+          id: 'incident-save-1',
+          chainId: 'ehr_queue_backlog',
+          name: 'EHR Queue Backlog',
+          description: 'Claims stuck',
+          startedDay: 9,
+          daysRemaining: 2,
+          stage: 'ongoing',
+          effectsSummary: '+docs',
+          ongoingEffects: { dailyBacklogDocs: 1.2 },
+          pendingDecision: {
+            stage: 'resolution',
+            prompt: 'Resolve',
+            defaultOptionId: 'overtime',
+            options: [{ id: 'overtime', label: 'Overtime', description: 'Pay and clear', effects: { cash: -100 } }]
+          }
+        }
+      ]
     };
 
     saveSlot('slot-2', 'Progress Save', state);
@@ -87,5 +106,7 @@ describe('persistence', () => {
     expect(loaded.objectiveProgress[0].objectiveId).toBe('loan_clear');
     expect(loaded.loan?.weeksRemaining).toBe(3);
     expect(loaded.lifetimeStats.attendedVisits).toBe(120);
+    expect(loaded.activeIncidents[0].name).toBe('EHR Queue Backlog');
+    expect(loaded.activeIncidents[0].pendingDecision?.stage).toBe('resolution');
   });
 });

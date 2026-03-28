@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialState } from './state';
-import { assignStaffRoom, buyUpgrade, fireStaff, generatePatients, hireStaff, placeBuildItem, placeRoom, runDay, startStaffTraining, toggleStaffSchedule } from './simulation';
+import { assignStaffRoom, buyUpgrade, chooseIncidentDecision, fireStaff, generatePatients, hireStaff, placeBuildItem, placeRoom, runDay, startStaffTraining, toggleStaffSchedule } from './simulation';
 
 describe('simulation core loop', () => {
   it('generates patient queue with meaningful size', () => {
@@ -185,5 +185,39 @@ describe('simulation core loop', () => {
 
     const invalid = assignStaffRoom(state, clinician!.uid, 'hydro');
     expect(invalid.staff.find((member) => member.uid === clinician!.uid)?.assignedRoom).toBe(clinician!.assignedRoom);
+  });
+
+  it('allows incident decisions to alter state and clear pending prompt', () => {
+    const state = createInitialState('campaign');
+    const seeded = {
+      ...state,
+      activeIncidents: [
+        {
+          id: 'incident-x',
+          chainId: 'test',
+          name: 'Test Incident',
+          description: 'For testing',
+          startedDay: state.day,
+          daysRemaining: 2,
+          stage: 'trigger' as const,
+          effectsSummary: 'test',
+          ongoingEffects: {},
+          pendingDecision: {
+            stage: 'trigger' as const,
+            prompt: 'Choose',
+            defaultOptionId: 'a',
+            options: [
+              { id: 'a', label: 'Spend', description: 'Lose cash', effects: { cash: -100 } },
+              { id: 'b', label: 'Hold', description: 'No-op' }
+            ]
+          }
+        }
+      ]
+    };
+
+    const next = chooseIncidentDecision(seeded, 'incident-x', 'a');
+    expect(next.cash).toBe(seeded.cash - 100);
+    expect(next.activeIncidents[0].pendingDecision).toBeUndefined();
+    expect(next.activeIncidents[0].stage).toBe('ongoing');
   });
 });
