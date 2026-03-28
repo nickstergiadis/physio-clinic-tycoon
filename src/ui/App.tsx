@@ -224,6 +224,11 @@ export function App() {
           <p className="kicker">Management Simulation</p>
           <h1>PHYSIOTHERAPY CLINIC TYCOON</h1>
           <p className="subtitle">Build a thriving rehab business. Balance outcomes, capacity, morale, and cashflow.</p>
+          <div className="hero-tags">
+            <span>Clinic Ops</span>
+            <span>Staff Strategy</span>
+            <span>Financial Pressure</span>
+          </div>
         </div>
         <div className="menu-actions panel">
           <button onClick={() => setScreen('newGame')}>New Game</button>
@@ -401,7 +406,7 @@ export function App() {
   if (state.cash < 0) alerts.push('You are in negative cash. Cut costs or raise throughput immediately.');
 
   return (
-    <div className="shell game">
+    <div className="shell game tycoon-theme">
       <header className="hud">
         <div className="hud-main">
           <div>
@@ -420,19 +425,23 @@ export function App() {
         {alerts.length > 0 && <div className="alert-strip">Priority: {alerts[0]}</div>}
         {!!actionMessage && <div className="status-banner">{actionMessage}</div>}
         <div className="row hud-controls">
-          <button onClick={() => setState({ ...state, paused: !state.paused, speed: state.paused ? (Math.max(state.speed, 1) as GameState['speed']) : 0 })}>{state.paused ? '▶ Resume' : '⏸ Pause'}</button>
-          <button className={state.speed === 1 && !state.paused ? 'speed-active' : ''} onClick={() => setState({ ...state, speed: 1, paused: false })}>1x</button>
-          <button className={state.speed === 2 && !state.paused ? 'speed-active' : ''} onClick={() => setState({ ...state, speed: 2, paused: false })}>2x</button>
-          <button className={state.speed === 3 && !state.paused ? 'speed-active' : ''} onClick={() => setState({ ...state, speed: 3, paused: false })}>3x</button>
-          <button onClick={() => {
-            const next = runDay(state);
-            setState(next);
-            if (next.latestSummary) setActionMessage(getDayMessage(next.latestSummary));
-          }}>Advance Day</button>
-          <button onClick={() => saveToSlot(1)}>Save 1</button>
-          <button onClick={() => saveToSlot(2)}>Save 2</button>
-          <button onClick={() => saveToSlot(3)}>Save 3</button>
-          <button className="ghost" onClick={() => setScreen('menu')}>Main Menu</button>
+          <div className="control-group">
+            <button onClick={() => setState({ ...state, paused: !state.paused, speed: state.paused ? (Math.max(state.speed, 1) as GameState['speed']) : 0 })}>{state.paused ? '▶ Resume' : '⏸ Pause'}</button>
+            <button className={state.speed === 1 && !state.paused ? 'speed-active' : ''} onClick={() => setState({ ...state, speed: 1, paused: false })}>1x</button>
+            <button className={state.speed === 2 && !state.paused ? 'speed-active' : ''} onClick={() => setState({ ...state, speed: 2, paused: false })}>2x</button>
+            <button className={state.speed === 3 && !state.paused ? 'speed-active' : ''} onClick={() => setState({ ...state, speed: 3, paused: false })}>3x</button>
+            <button onClick={() => {
+              const next = runDay(state);
+              setState(next);
+              if (next.latestSummary) setActionMessage(getDayMessage(next.latestSummary));
+            }}>Advance Day</button>
+          </div>
+          <div className="control-group">
+            <button onClick={() => saveToSlot(1)}>Save 1</button>
+            <button onClick={() => saveToSlot(2)}>Save 2</button>
+            <button onClick={() => saveToSlot(3)}>Save 3</button>
+            <button className="ghost" onClick={() => setScreen('menu')}>Main Menu</button>
+          </div>
         </div>
         {DEV_PANEL_ENABLED && (
           <div className="card compact" style={{ marginTop: 8 }}>
@@ -470,7 +479,7 @@ export function App() {
       <main className="content">
         {state.selectedTab === 'overview' && (
           <section className="grid-2 section-overview">
-            <article className="card">
+            <article className="card card-overview">
               <h3>Operations Snapshot</h3>
               <p>Rooms: {state.rooms.length}/{state.maxClinicSize}</p>
               <p>Staff scheduled: {state.staff.filter((s) => s.scheduled).length}/{state.staff.length}</p>
@@ -533,7 +542,7 @@ export function App() {
                 </div>
               )}
             </article>
-            <article className="card">
+            <article className="card card-diagnostics">
               <h3>Why you are winning / struggling</h3>
               <div className="insight-list">
                 {clinicDrivers.map((driver) => (
@@ -644,7 +653,7 @@ export function App() {
 
         {state.selectedTab === 'build' && (
           <section className="grid-2 section-build">
-            <article className="card">
+            <article className="card card-build-grid">
               <h3>Layout (6x6)</h3>
               <p>Capacity left: <strong>{emptyTiles}</strong> room slots. Select a room, item, or path tool, then click tiles to shape flow.</p>
               <div className="layout-grid">
@@ -697,7 +706,7 @@ export function App() {
                 })}
               </div>
             </article>
-            <article className="card">
+            <article className="card card-build-tools">
               <h3>Build Tools</h3>
               <button
                 className={`build-option ${selectedBuildRoom === 'path' ? 'active' : ''}`}
@@ -822,7 +831,7 @@ export function App() {
 
         {state.selectedTab === 'staff' && (
           <section className="grid-2 section-staff">
-            <article className="card">
+            <article className="card card-staff-roster">
               <h3>Team</h3>
               <div className="mini-metrics">
                 {staffInsights.map((insight) => (
@@ -861,7 +870,7 @@ export function App() {
                 </div>
               ))}
             </article>
-            <article className="card">
+            <article className="card card-staff-hire">
               <h3>Recent Staff Thoughts</h3>
               <div className="insight-list">
                 {(state.latestSummary?.staffThoughts ?? []).map((thought) => (
@@ -997,7 +1006,7 @@ export function App() {
 
         {state.selectedTab === 'finance' && (
           <section className="grid-2 section-finance">
-            <article className="card">
+            <article className="card card-finance-core">
               <h3>Finance Command Center</h3>
               <p>Cash: ${Math.round(state.cash)}</p>
               <p>Weekly fixed costs due: ${Math.round(state.payrollDue)}</p>
@@ -1024,7 +1033,7 @@ export function App() {
                 </>
               )}
             </article>
-            <article className="card">
+            <article className="card card-finance-risk">
               <h3>Risk Flags & Next Action</h3>
               <ul>
                 <li>{state.cash < 0 ? '⚠ Negative cashflow' : '✅ Solvent'}</li>
