@@ -220,16 +220,24 @@ export function App() {
     const newest = [...slots].sort((a, b) => b.timestamp - a.timestamp)[0];
     return (
       <div className="shell menu">
-        <h1>PHYSIOTHERAPY CLINIC TYCOON</h1>
-        <p className="subtitle">Build a thriving rehab business. Balance outcomes, capacity, morale, and cashflow.</p>
-        <div className="menu-actions">
+        <div className="menu-hero panel">
+          <p className="kicker">Management Simulation</p>
+          <h1>PHYSIOTHERAPY CLINIC TYCOON</h1>
+          <p className="subtitle">Build a thriving rehab business. Balance outcomes, capacity, morale, and cashflow.</p>
+          <div className="hero-tags">
+            <span>Clinic Ops</span>
+            <span>Staff Strategy</span>
+            <span>Financial Pressure</span>
+          </div>
+        </div>
+        <div className="menu-actions panel">
           <button onClick={() => setScreen('newGame')}>New Game</button>
           <button disabled={!newest} onClick={continueLatest} title={!newest ? 'No save found yet' : `Load ${newest.label}`}>Continue Latest Save</button>
           <button onClick={() => setScreen('loadGame')}>Load / Manage Saves</button>
           <button onClick={() => setScreen('tutorial')}>How to Play (2 min)</button>
           <button onClick={() => setScreen('settings')}>Settings</button>
         </div>
-        {newest && <p className="subtitle">Latest save: {newest.label} · {formatDateTime(newest.timestamp)}</p>}
+        {newest && <p className="subtitle menu-latest">Latest save: {newest.label} · {formatDateTime(newest.timestamp)}</p>}
       </div>
     );
   }
@@ -237,7 +245,7 @@ export function App() {
   if (screen === 'newGame') {
     const selectedScenarioDef = getScenario(selectedScenario);
     return (
-      <div className="shell panel">
+      <div className="shell panel menu-screen">
         <h2>Choose Play Mode</h2>
         <div className="grid-2">
           <button onClick={() => startGame('campaign')}>
@@ -275,7 +283,7 @@ export function App() {
 
   if (screen === 'loadGame') {
     return (
-      <div className="shell panel">
+      <div className="shell panel menu-screen">
         <h2>Load / Manage Saves</h2>
         {!slots.length && <p>No save slots found. Start a new game and press Save in the HUD.</p>}
         {slots.map((slot) => (
@@ -298,7 +306,7 @@ export function App() {
 
   if (screen === 'tutorial') {
     return (
-      <div className="shell panel">
+      <div className="shell panel menu-screen">
         <h2>Quick Onboarding (under 2 minutes)</h2>
         <ol>
           <li><strong>Press Advance Day once.</strong> This gives baseline demand, profit, and risk flags.</li>
@@ -318,7 +326,7 @@ export function App() {
   if (screen === 'settings') {
     const settings = state?.settings ?? loadSettings();
     return (
-      <div className="shell panel">
+      <div className="shell panel menu-screen">
         <h2>Settings</h2>
         <label><input type="checkbox" checked={settings.soundEnabled} onChange={(e) => {
           const next = { ...settings, soundEnabled: e.target.checked };
@@ -398,35 +406,42 @@ export function App() {
   if (state.cash < 0) alerts.push('You are in negative cash. Cut costs or raise throughput immediately.');
 
   return (
-    <div className="shell game">
+    <div className="shell game tycoon-theme">
       <header className="hud">
         <div className="hud-main">
-          <h2>Physiotherapy Clinic Tycoon</h2>
-          <div>Day {state.day} · Week {state.week} · Mode: {state.mode}</div>
+          <div>
+            <p className="kicker">Clinic Operations Command</p>
+            <h2>Physiotherapy Clinic Tycoon</h2>
+          </div>
+          <div className="hud-meta">Day <strong>{state.day}</strong> · Week <strong>{state.week}</strong> · Mode <span className="mode-pill">{state.mode}</span></div>
         </div>
         <div className="hud-stats">
-          <div title="Cash available for payroll, rent and expansion">Cash: <strong>${Math.round(state.cash)}</strong></div>
-          <div title="Impacts referrals and premium pricing">Rep: <strong>{state.reputation.toFixed(0)}</strong></div>
-          <div title="Projected incoming patient volume">Referrals: <strong>{state.referrals}</strong></div>
-          <div title="Clinic-wide fatigue risk">Fatigue: <strong>{(state.fatigueIndex * 100).toFixed(0)}%</strong></div>
-          <div title="Unfinished documentation creates penalties">Docs: <strong>{state.backlogDocs.toFixed(1)}</strong></div>
+          <div className="hud-stat stat-cash" title="Cash available for payroll, rent and expansion"><span>Cash</span><strong>${Math.round(state.cash)}</strong></div>
+          <div className="hud-stat stat-rep" title="Impacts referrals and premium pricing"><span>Reputation</span><strong>{state.reputation.toFixed(0)}</strong></div>
+          <div className="hud-stat" title="Projected incoming patient volume"><span>Referrals</span><strong>{state.referrals}</strong></div>
+          <div className="hud-stat stat-risk" title="Clinic-wide fatigue risk"><span>Fatigue</span><strong>{(state.fatigueIndex * 100).toFixed(0)}%</strong></div>
+          <div className="hud-stat stat-risk" title="Unfinished documentation creates penalties"><span>Docs Backlog</span><strong>{state.backlogDocs.toFixed(1)}</strong></div>
         </div>
         {alerts.length > 0 && <div className="alert-strip">Priority: {alerts[0]}</div>}
         {!!actionMessage && <div className="status-banner">{actionMessage}</div>}
-        <div className="row">
-          <button onClick={() => setState({ ...state, paused: !state.paused, speed: state.paused ? (Math.max(state.speed, 1) as GameState['speed']) : 0 })}>{state.paused ? '▶ Resume' : '⏸ Pause'}</button>
-          <button className={state.speed === 1 && !state.paused ? 'speed-active' : ''} onClick={() => setState({ ...state, speed: 1, paused: false })}>1x</button>
-          <button className={state.speed === 2 && !state.paused ? 'speed-active' : ''} onClick={() => setState({ ...state, speed: 2, paused: false })}>2x</button>
-          <button className={state.speed === 3 && !state.paused ? 'speed-active' : ''} onClick={() => setState({ ...state, speed: 3, paused: false })}>3x</button>
-          <button onClick={() => {
-            const next = runDay(state);
-            setState(next);
-            if (next.latestSummary) setActionMessage(getDayMessage(next.latestSummary));
-          }}>Advance Day</button>
-          <button onClick={() => saveToSlot(1)}>Save 1</button>
-          <button onClick={() => saveToSlot(2)}>Save 2</button>
-          <button onClick={() => saveToSlot(3)}>Save 3</button>
-          <button className="ghost" onClick={() => setScreen('menu')}>Main Menu</button>
+        <div className="row hud-controls">
+          <div className="control-group">
+            <button onClick={() => setState({ ...state, paused: !state.paused, speed: state.paused ? (Math.max(state.speed, 1) as GameState['speed']) : 0 })}>{state.paused ? '▶ Resume' : '⏸ Pause'}</button>
+            <button className={state.speed === 1 && !state.paused ? 'speed-active' : ''} onClick={() => setState({ ...state, speed: 1, paused: false })}>1x</button>
+            <button className={state.speed === 2 && !state.paused ? 'speed-active' : ''} onClick={() => setState({ ...state, speed: 2, paused: false })}>2x</button>
+            <button className={state.speed === 3 && !state.paused ? 'speed-active' : ''} onClick={() => setState({ ...state, speed: 3, paused: false })}>3x</button>
+            <button onClick={() => {
+              const next = runDay(state);
+              setState(next);
+              if (next.latestSummary) setActionMessage(getDayMessage(next.latestSummary));
+            }}>Advance Day</button>
+          </div>
+          <div className="control-group">
+            <button onClick={() => saveToSlot(1)}>Save 1</button>
+            <button onClick={() => saveToSlot(2)}>Save 2</button>
+            <button onClick={() => saveToSlot(3)}>Save 3</button>
+            <button className="ghost" onClick={() => setScreen('menu')}>Main Menu</button>
+          </div>
         </div>
         {DEV_PANEL_ENABLED && (
           <div className="card compact" style={{ marginTop: 8 }}>
@@ -447,7 +462,7 @@ export function App() {
       <nav className="tabs">
         {tabs.map((tab, index) => (
           <button key={tab} className={state.selectedTab === tab ? 'active' : ''} onClick={() => setState({ ...state, selectedTab: tab })}>
-            {index + 1}. {tab}
+            {index + 1}. {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
       </nav>
@@ -463,8 +478,8 @@ export function App() {
 
       <main className="content">
         {state.selectedTab === 'overview' && (
-          <section className="grid-2">
-            <article className="card">
+          <section className="grid-2 section-overview">
+            <article className="card card-overview">
               <h3>Operations Snapshot</h3>
               <p>Rooms: {state.rooms.length}/{state.maxClinicSize}</p>
               <p>Staff scheduled: {state.staff.filter((s) => s.scheduled).length}/{state.staff.length}</p>
@@ -527,7 +542,7 @@ export function App() {
                 </div>
               )}
             </article>
-            <article className="card">
+            <article className="card card-diagnostics">
               <h3>Why you are winning / struggling</h3>
               <div className="insight-list">
                 {clinicDrivers.map((driver) => (
@@ -637,8 +652,8 @@ export function App() {
         )}
 
         {state.selectedTab === 'build' && (
-          <section className="grid-2">
-            <article className="card">
+          <section className="grid-2 section-build">
+            <article className="card card-build-grid">
               <h3>Layout (6x6)</h3>
               <p>Capacity left: <strong>{emptyTiles}</strong> room slots. Select a room, item, or path tool, then click tiles to shape flow.</p>
               <div className="layout-grid">
@@ -691,7 +706,7 @@ export function App() {
                 })}
               </div>
             </article>
-            <article className="card">
+            <article className="card card-build-tools">
               <h3>Build Tools</h3>
               <button
                 className={`build-option ${selectedBuildRoom === 'path' ? 'active' : ''}`}
@@ -815,8 +830,8 @@ export function App() {
         )}
 
         {state.selectedTab === 'staff' && (
-          <section className="grid-2">
-            <article className="card">
+          <section className="grid-2 section-staff">
+            <article className="card card-staff-roster">
               <h3>Team</h3>
               <div className="mini-metrics">
                 {staffInsights.map((insight) => (
@@ -855,7 +870,7 @@ export function App() {
                 </div>
               ))}
             </article>
-            <article className="card">
+            <article className="card card-staff-hire">
               <h3>Recent Staff Thoughts</h3>
               <div className="insight-list">
                 {(state.latestSummary?.staffThoughts ?? []).map((thought) => (
@@ -895,7 +910,7 @@ export function App() {
         )}
 
         {state.selectedTab === 'patients' && (
-          <section className="card">
+          <section className="card section-patients">
             <h3>Caseload & Demand Quality</h3>
             <div className="row" style={{ marginBottom: 8 }}>
               <label>
@@ -990,8 +1005,8 @@ export function App() {
         )}
 
         {state.selectedTab === 'finance' && (
-          <section className="grid-2">
-            <article className="card">
+          <section className="grid-2 section-finance">
+            <article className="card card-finance-core">
               <h3>Finance Command Center</h3>
               <p>Cash: ${Math.round(state.cash)}</p>
               <p>Weekly fixed costs due: ${Math.round(state.payrollDue)}</p>
@@ -1018,7 +1033,7 @@ export function App() {
                 </>
               )}
             </article>
-            <article className="card">
+            <article className="card card-finance-risk">
               <h3>Risk Flags & Next Action</h3>
               <ul>
                 <li>{state.cash < 0 ? '⚠ Negative cashflow' : '✅ Solvent'}</li>
@@ -1040,7 +1055,7 @@ export function App() {
         )}
 
         {state.selectedTab === 'upgrades' && (
-          <section className="card">
+          <section className="card section-upgrades">
             <h3>Upgrade Tree</h3>
             {!availableUpgrades.length && <p>All upgrades purchased.</p>}
             <div className="upgrade-list">
@@ -1068,7 +1083,7 @@ export function App() {
 
       {(state.gameOver || state.gameWon) && (
         <div className="overlay">
-          <div className="panel">
+          <div className={`panel endgame ${state.gameWon ? "win" : "loss"}`}>
             <h2>{state.gameWon ? 'Campaign Success!' : 'Clinic Crisis'}</h2>
             <p>{state.gameWon ? 'You hit your campaign targets with a sustainable clinic model.' : 'A fail threshold was crossed. Use the reasons + coaching below before your next run.'}</p>
             {!state.gameWon && (
