@@ -12,7 +12,7 @@ import {
   UpgradeDefinition
 } from '../types/game';
 
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
 
 export const PATIENT_ARCHETYPES: PatientArchetype[] = [
   {
@@ -446,12 +446,12 @@ export const DIFFICULTY_PRESETS: DifficultyPreset[] = [
   {
     id: 'standard',
     name: 'Standard',
-    demandMultiplier: 1,
-    revenueMultiplier: 1,
-    expenseMultiplier: 1,
-    noShowShift: 0,
+    demandMultiplier: 1.03,
+    revenueMultiplier: 1.02,
+    expenseMultiplier: 0.98,
+    noShowShift: -0.005,
     cancellationShift: 0,
-    reputationDecay: 0.03,
+    reputationDecay: 0.02,
     loanInterestMultiplier: 1
   },
   {

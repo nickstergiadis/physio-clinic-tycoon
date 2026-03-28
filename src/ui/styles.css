@@ -86,6 +86,9 @@ button.insight-row { width: 100%; color: inherit; }
 .service-line-chip.status-strong { border-color: #8cc8a2; background: #effaf3; }
 .service-line-chip.status-watch { border-color: #d7dde4; background: #f7f9fc; }
 .service-line-chip.status-critical { border-color: #efb1b1; background: #fff1f1; }
+.trend-chart { padding: 0.65rem; border-radius: 10px; border: 1px solid #d6e5f1; background: #fbfdff; }
+.trend-bars { margin-top: 0.45rem; display: flex; align-items: flex-end; gap: 3px; min-height: 70px; }
+.trend-bar { width: 10px; border-radius: 5px 5px 2px 2px; opacity: 0.9; }
 
 .overlay { position: fixed; inset: 0; background: rgba(12, 20, 31, 0.5); display: grid; place-items: center; }
 .campaign-box { margin-top: 1rem; padding: 0.8rem; border-radius: 10px; background: #f1f8fc; }

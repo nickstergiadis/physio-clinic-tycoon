@@ -150,6 +150,30 @@ describe('simulation core loop', () => {
     expect(state.latestSummary?.fixedCosts).toBe(0);
   });
 
+  it('generates weekly reports and bounded daily trend history', () => {
+    let state = { ...createInitialState('campaign'), seed: 5151 };
+    for (let i = 0; i < 28; i += 1) state = runDay(state);
+    expect(state.weeklyReports.length).toBeGreaterThanOrEqual(4);
+    expect(state.weeklyReports[0].week).toBeGreaterThanOrEqual(1);
+    const lastReport = state.weeklyReports[state.weeklyReports.length - 1];
+    expect(lastReport?.endDay).toBe(state.day - 1);
+    expect(state.dailyTrends.length).toBeLessThanOrEqual(84);
+    const lastTrend = state.dailyTrends[state.dailyTrends.length - 1];
+    expect(lastTrend?.day).toBe(state.day);
+  });
+
+  it('keeps standard mode fairer than hardcore under same seed', () => {
+    let standard = { ...createInitialState('campaign', 'community_rebuild', 'standard'), seed: 9191 };
+    let hardcore = { ...createInitialState('campaign', 'community_rebuild', 'hardcore'), seed: 9191 };
+    for (let i = 0; i < 14; i += 1) {
+      standard = runDay(standard);
+      hardcore = runDay(hardcore);
+    }
+
+    expect(standard.cash).toBeGreaterThan(hardcore.cash);
+    expect(standard.reputation).toBeGreaterThanOrEqual(hardcore.reputation - 5);
+  });
+
   it('small setback can be recovered with one operational improvement', () => {
     let state = { ...createInitialState('campaign'), seed: 6123, cash: 9000 };
     state = runDay(state);

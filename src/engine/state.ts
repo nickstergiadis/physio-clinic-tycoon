@@ -97,6 +97,8 @@ export const createInitialState = (mode: GameMode, scenarioId: ScenarioId = DEFA
     attendedVisits: 0,
     noShows: 0
   },
+  dailyTrends: [],
+  weeklyReports: [],
   operationalModifiers: {
     leadMultiplier: 1,
     bookingShift: 0,

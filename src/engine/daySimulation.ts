@@ -1,4 +1,4 @@
-import { DaySummary, DiagnosticCategory, GameState, InsightSeverity, PatientVisit, ThoughtInsight } from '../types/game';
+import { DailyTrendPoint, DaySummary, DiagnosticCategory, GameState, InsightSeverity, PatientVisit, ThoughtInsight, WeeklyReport } from '../types/game';
 import { average, clamp } from './utils';
 import { applyDailyIncidents, settleIncidentsAfterDay } from './events';
 import { BALANCE, getDifficultyPreset, sumUpgradeEffect } from './simulationConfig';
@@ -132,6 +132,38 @@ const buildDailyDemand = (state: GameState): DemandBuild => {
     referrals: flow.referralLeads,
     lostUnbooked: flow.lostUnbooked,
     lostServiceMismatch: flow.lostServiceMismatch
+  };
+};
+
+const pickWeeklyRiskAndTip = (latest: DaySummary | undefined): { topRisk: string; coachingTip: string } => {
+  if (!latest) return { topRisk: 'No critical risk detected.', coachingTip: 'Keep balancing throughput and quality while growing steadily.' };
+  if (latest.lostDemand.capacity > Math.max(4, latest.attendedVisits * 0.35)) {
+    return {
+      topRisk: 'Capacity overflow is leaking demand.',
+      coachingTip: 'Prioritize one capacity fix this week: add a clinician shift, room, or lower booking aggressiveness.'
+    };
+  }
+  if (latest.lostDemand.noShows + latest.lostDemand.cancellations > Math.max(3, latest.bookedVisits * 0.3)) {
+    return {
+      topRisk: 'Attendance reliability is unstable.',
+      coachingTip: 'Adopt balanced booking and invest in no-show reduction upgrades before scaling ads.'
+    };
+  }
+  if (latest.avgOutcome < 0.5) {
+    return {
+      topRisk: 'Clinical outcomes are under target.',
+      coachingTip: 'Improve service/room fit and staffing quality before pursuing aggressive growth.'
+    };
+  }
+  if (latest.profit < 0) {
+    return {
+      topRisk: 'Weekly profitability is fragile.',
+      coachingTip: 'Protect runway: pause expansion for 1-2 weeks and clear documentation/throughput bottlenecks.'
+    };
+  }
+  return {
+    topRisk: 'No critical risk detected.',
+    coachingTip: 'Momentum is healthy. Scale one system at a time and keep a 2-week cash cushion.'
   };
 };
 
@@ -355,6 +387,18 @@ export const runDay = (state: GameState): GameState => {
   };
 
   next.latestSummary = summary;
+  const trendPoint: DailyTrendPoint = {
+    day: next.day,
+    cash: Math.round(next.cash),
+    reputation: Number(next.reputation.toFixed(1)),
+    utilization: summary.utilization,
+    profit: summary.profit,
+    avgOutcome: summary.avgOutcome,
+    avgWait: summary.avgWait,
+    attendedVisits: summary.attendedVisits,
+    noShows: summary.noShows
+  };
+  next.dailyTrends = [...next.dailyTrends, trendPoint].slice(-84);
   next.latestSchedule = summary.schedule;
   next.demandSnapshot = {
     inboundLeads: demand.leads,
@@ -366,6 +410,32 @@ export const runDay = (state: GameState): GameState => {
     `${next.day}: Leads ${summary.inboundLeads} → booked ${summary.bookedVisits} → attended ${summary.attendedVisits}. Profit $${summary.profit}.`,
     ...next.eventLog
   ].slice(0, 12);
+
+  if (dayOfWeek === 7) {
+    const weekDays = next.dailyTrends.slice(-7);
+    const avgUtilization = weekDays.length > 0 ? average(weekDays.map((point) => point.utilization)) : 0;
+    const avgOutcome = weekDays.length > 0 ? average(weekDays.map((point) => point.avgOutcome)) : summary.avgOutcome;
+    const avgWait = weekDays.length > 0 ? average(weekDays.map((point) => point.avgWait)) : summary.avgWait;
+    const weeklyProfit = next.weeklyLedger.revenue - next.weeklyLedger.variableCosts - weeklyFixedCosts;
+    const weeklyReportGuide = pickWeeklyRiskAndTip(summary);
+    const weeklyReport: WeeklyReport = {
+      week: next.week,
+      startDay: Math.max(1, next.day - 6),
+      endDay: next.day,
+      revenue: Math.round(next.weeklyLedger.revenue),
+      expenses: Math.round(next.weeklyLedger.variableCosts + weeklyFixedCosts),
+      profit: Math.round(weeklyProfit),
+      attendedVisits: next.weeklyLedger.attendedVisits,
+      noShows: next.weeklyLedger.noShows,
+      avgUtilization: Number(avgUtilization.toFixed(1)),
+      avgOutcome: Number(avgOutcome.toFixed(2)),
+      avgWait: Number(avgWait.toFixed(1)),
+      topRisk: weeklyReportGuide.topRisk,
+      coachingTip: weeklyReportGuide.coachingTip
+    };
+    next.weeklyReports = [...next.weeklyReports, weeklyReport].slice(-16);
+    next.eventLog = [`Weekly report W${weeklyReport.week}: ${weeklyReport.topRisk}`, ...next.eventLog].slice(0, 12);
+  }
 
   const scenario = getScenario(next.scenarioId);
   const bankruptcy = next.cash < scenario.failure.maxDebt && next.day > 14;
