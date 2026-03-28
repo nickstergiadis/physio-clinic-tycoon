@@ -84,6 +84,14 @@ export const migrateStateByVersion = (state: Partial<GameState>, fromVersion: nu
     };
   }
 
+  if (fromVersion < 12) {
+    return {
+      ...state,
+      dailyTrends: state.dailyTrends ?? undefined,
+      weeklyReports: state.weeklyReports ?? undefined
+    };
+  }
+
   return state;
 };
 
@@ -178,6 +186,42 @@ export const sanitizeState = (state: GameState): GameState => {
       attendedVisits: migrated.weeklyLedger?.attendedVisits ?? base.weeklyLedger.attendedVisits,
       noShows: migrated.weeklyLedger?.noShows ?? base.weeklyLedger.noShows
     },
+    dailyTrends: Array.isArray(migrated.dailyTrends)
+      ? migrated.dailyTrends
+          .filter((point) => typeof point?.day === 'number')
+          .map((point) => ({
+            day: point.day,
+            cash: point.cash ?? 0,
+            reputation: point.reputation ?? 0,
+            utilization: point.utilization ?? 0,
+            profit: point.profit ?? 0,
+            avgOutcome: point.avgOutcome ?? 0,
+            avgWait: point.avgWait ?? 0,
+            attendedVisits: point.attendedVisits ?? 0,
+            noShows: point.noShows ?? 0
+          }))
+          .slice(-84)
+      : base.dailyTrends,
+    weeklyReports: Array.isArray(migrated.weeklyReports)
+      ? migrated.weeklyReports
+          .filter((report) => typeof report?.week === 'number')
+          .map((report) => ({
+            week: report.week,
+            startDay: report.startDay ?? Math.max(1, report.week * 7 - 6),
+            endDay: report.endDay ?? report.week * 7,
+            revenue: report.revenue ?? 0,
+            expenses: report.expenses ?? 0,
+            profit: report.profit ?? 0,
+            attendedVisits: report.attendedVisits ?? 0,
+            noShows: report.noShows ?? 0,
+            avgUtilization: report.avgUtilization ?? 0,
+            avgOutcome: report.avgOutcome ?? 0,
+            avgWait: report.avgWait ?? 0,
+            topRisk: report.topRisk ?? 'No critical risk detected.',
+            coachingTip: report.coachingTip ?? 'Keep balancing throughput and quality.'
+          }))
+          .slice(-16)
+      : base.weeklyReports,
     operationalModifiers: {
       leadMultiplier: migrated.operationalModifiers?.leadMultiplier ?? base.operationalModifiers.leadMultiplier,
       bookingShift: migrated.operationalModifiers?.bookingShift ?? base.operationalModifiers.bookingShift,

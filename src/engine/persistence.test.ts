@@ -97,6 +97,26 @@ describe('persistence', () => {
             options: [{ id: 'overtime', label: 'Overtime', description: 'Pay and clear', effects: { cash: -100 } }]
           }
         }
+      ],
+      dailyTrends: [
+        { day: 8, cash: 21100, reputation: 54, utilization: 78, profit: 520, avgOutcome: 0.63, avgWait: 13, attendedVisits: 14, noShows: 2 }
+      ],
+      weeklyReports: [
+        {
+          week: 2,
+          startDay: 8,
+          endDay: 14,
+          revenue: 9100,
+          expenses: 7400,
+          profit: 1700,
+          attendedVisits: 82,
+          noShows: 9,
+          avgUtilization: 76,
+          avgOutcome: 0.61,
+          avgWait: 14,
+          topRisk: 'Attendance reliability is unstable.',
+          coachingTip: 'Invest in booking discipline.'
+        }
       ]
     };
 
@@ -108,5 +128,7 @@ describe('persistence', () => {
     expect(loaded.lifetimeStats.attendedVisits).toBe(120);
     expect(loaded.activeIncidents[0].name).toBe('EHR Queue Backlog');
     expect(loaded.activeIncidents[0].pendingDecision?.stage).toBe('resolution');
+    expect(loaded.dailyTrends[0].profit).toBe(520);
+    expect(loaded.weeklyReports[0].week).toBe(2);
   });
 });

@@ -482,6 +482,34 @@ export interface WeeklyLedger {
   noShows: number;
 }
 
+export interface DailyTrendPoint {
+  day: number;
+  cash: number;
+  reputation: number;
+  utilization: number;
+  profit: number;
+  avgOutcome: number;
+  avgWait: number;
+  attendedVisits: number;
+  noShows: number;
+}
+
+export interface WeeklyReport {
+  week: number;
+  startDay: number;
+  endDay: number;
+  revenue: number;
+  expenses: number;
+  profit: number;
+  attendedVisits: number;
+  noShows: number;
+  avgUtilization: number;
+  avgOutcome: number;
+  avgWait: number;
+  topRisk: string;
+  coachingTip: string;
+}
+
 export interface SaveSlot {
   id: string;
   label: string;
@@ -540,6 +568,8 @@ export interface GameState {
     };
   };
   weeklyLedger: WeeklyLedger;
+  dailyTrends: DailyTrendPoint[];
+  weeklyReports: WeeklyReport[];
   operationalModifiers: {
     leadMultiplier: number;
     bookingShift: number;

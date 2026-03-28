@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BUILD_ITEMS, CAMPAIGN_SCENARIOS, DIFFICULTY_PRESETS, ROOM_DEFS, SERVICES, STAFF_TEMPLATES, UPGRADES } from '../data/content';
 import {
   assignStaffRoom,
@@ -24,7 +24,7 @@ import {
 import { deleteSlot, loadSettings, loadSlots, saveSettings, saveSlot } from '../engine/persistence';
 import { addCash, fastForwardDays, setHighNoShowMode, spawnSamplePatients } from '../engine/devTools';
 import { createInitialState } from '../engine/state';
-import { BookingPolicy, BuildItemId, DaySummary, DifficultyPresetId, GameMode, GameState, RoomTypeId, SaveSlot, ScenarioId, Screen, ServiceId, StaffRoleId } from '../types/game';
+import { BookingPolicy, BuildItemId, DaySummary, DifficultyPresetId, GameMode, GameState, RoomTypeId, SaveSlot, ScenarioId, Screen, ServiceId, StaffRoleId, WeeklyReport } from '../types/game';
 import { objectiveStatus } from '../engine/campaign';
 import { formatSignedCurrency, getClinicDrivers, getDemandPressure, getFinanceSnapshot, getStaffInsights } from './dashboard';
 import { getBuildItemPlacementError, getItemEffectTotals } from '../engine/buildItems';
@@ -98,6 +98,50 @@ const SEVERITY_BADGE: Record<'low' | 'medium' | 'high', string> = {
   low: 'severity-low',
   medium: 'severity-medium',
   high: 'severity-high'
+};
+
+const clampPct = (value: number) => Math.max(0, Math.min(100, value));
+
+const getCoachingPriorities = (state: GameState): string[] => {
+  const tips: string[] = [];
+  if (!state.latestSummary) {
+    tips.push('Run your first day to unlock diagnostics and baseline demand.');
+    tips.push('Make only one change after day 1 so you can observe its impact clearly.');
+    return tips;
+  }
+  if (!state.staff.some((s) => s.scheduled && s.role !== 'frontDesk')) tips.push('Schedule at least one clinician; front desk alone cannot treat patients.');
+  if (state.latestSummary.lostDemand.capacity > Math.max(4, state.latestSummary.attendedVisits * 0.35)) tips.push('Capacity loss is high: add one staff shift/room or switch booking policy to Balanced.');
+  if (state.latestSummary.lostDemand.noShows + state.latestSummary.lostDemand.cancellations > Math.max(3, state.latestSummary.bookedVisits * 0.3)) tips.push('No-shows and cancellations are leaking demand. Prioritize online booking or telehealth continuity upgrades.');
+  if (state.backlogDocs > 10) tips.push('Documentation backlog is expensive. Add admin capacity or EHR-focused upgrades before expanding.');
+  if (state.cash < 5000) tips.push('Cash cushion is thin. Pause expansion and target stable positive days first.');
+  if (!tips.length) tips.push('System health is stable—scale one bottleneck at a time to protect consistency.');
+  return tips.slice(0, 3);
+};
+
+const TrendChart = ({ label, points, color, format }: { label: string; points: number[]; color: string; format: (value: number) => string }) => {
+  if (!points.length) return <small>Run several days to unlock trend history.</small>;
+  const max = Math.max(...points);
+  const min = Math.min(...points);
+  const spread = Math.max(1, max - min);
+  const latest = points[points.length - 1];
+  return (
+    <div className="trend-chart" aria-label={`${label} trend`}>
+      <div className="row">
+        <strong>{label}</strong>
+        <small>{format(latest)} latest</small>
+      </div>
+      <div className="trend-bars">
+        {points.slice(-21).map((value, idx) => (
+          <span
+            key={`${label}-${idx}`}
+            className="trend-bar"
+            style={{ height: `${Math.max(8, ((value - min) / spread) * 60 + 8)}px`, background: color }}
+            title={`${label}: ${format(value)}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
 };
 
 export function App() {
@@ -333,13 +377,15 @@ export function App() {
   const itemEffects = getItemEffectTotals(state);
   const isItemTool = selectedBuildRoom ? BUILD_ITEMS.some((item) => item.id === selectedBuildRoom) : false;
   const assignableRoomTypes = [...new Set(state.rooms.map((room) => room.type))];
-  const financeSnapshot = getFinanceSnapshot(state);
-  const staffInsights = getStaffInsights(state);
-  const demandPressure = getDemandPressure(state.latestSummary);
-  const clinicDrivers = getClinicDrivers(state);
+  const financeSnapshot = useMemo(() => getFinanceSnapshot(state), [state]);
+  const staffInsights = useMemo(() => getStaffInsights(state), [state]);
+  const demandPressure = useMemo(() => getDemandPressure(state.latestSummary), [state.latestSummary]);
+  const clinicDrivers = useMemo(() => getClinicDrivers(state), [state]);
   const topServiceLines = state.latestSummary?.serviceLinePerformance ?? [];
   const bestServiceLines = topServiceLines.filter((line) => line.attended > 0).slice(0, 3);
   const worstServiceLines = [...topServiceLines].sort((a, b) => (b.failures - b.attended * 0.4) - (a.failures - a.attended * 0.4)).slice(0, 3);
+  const latestWeeklyReport = state.weeklyReports[state.weeklyReports.length - 1];
+  const coachingPriorities = getCoachingPriorities(state);
 
   const alerts: string[] = [];
   if (!clinicianScheduled) alerts.push('No clinician is scheduled. You will treat 0 patients.');
@@ -402,6 +448,14 @@ export function App() {
         ))}
       </nav>
       <div className="tab-helper">{TAB_HELP[state.selectedTab]}</div>
+      {state.settings.showTutorialHints && (
+        <div className="hint-box">
+          <strong>Coach priorities</strong>
+          <ul>
+            {coachingPriorities.map((tip) => <li key={tip}>{tip}</li>)}
+          </ul>
+        </div>
+      )}
 
       <main className="content">
         {state.selectedTab === 'overview' && (
@@ -530,6 +584,26 @@ export function App() {
                         </button>
                       ))}
                     </div>
+                  </div>
+                  <h3>Historical Trends (last 3 weeks)</h3>
+                  <div className="grid-2">
+                    <TrendChart label="Daily Profit" points={state.dailyTrends.map((point) => point.profit)} color="#2f9e68" format={(value) => formatSignedCurrency(Math.round(value))} />
+                    <TrendChart label="Utilization" points={state.dailyTrends.map((point) => clampPct(point.utilization))} color="#277da1" format={(value) => `${Math.round(value)}%`} />
+                    <TrendChart label="Reputation" points={state.dailyTrends.map((point) => clampPct(point.reputation))} color="#7b5abf" format={(value) => `${value.toFixed(0)}`} />
+                    <TrendChart label="Cash" points={state.dailyTrends.map((point) => point.cash)} color="#f2a541" format={(value) => `$${Math.round(value)}`} />
+                  </div>
+                  <h3>Weekly Reports</h3>
+                  {state.weeklyReports.length === 0 && <small>First report is generated at the end of week 1.</small>}
+                  <div className="insight-list">
+                    {[...state.weeklyReports].reverse().slice(0, 4).map((report: WeeklyReport) => (
+                      <div key={`report-${report.week}-${report.endDay}`} className={`insight-row ${report.profit >= 0 ? 'tone-positive' : 'tone-negative'}`}>
+                        <strong>Week {report.week} (Days {report.startDay}-{report.endDay}) · Profit {formatSignedCurrency(report.profit)}</strong>
+                        <small>Revenue ${report.revenue} · Expenses ${report.expenses} · Attended {report.attendedVisits} · No-shows {report.noShows}</small>
+                        <small>Avg utilization {report.avgUtilization}% · Avg wait {report.avgWait}m · Avg outcome {Math.round(report.avgOutcome * 100)}%</small>
+                        <small><strong>Top risk:</strong> {report.topRisk}</small>
+                        <small><strong>Coach tip:</strong> {report.coachingTip}</small>
+                      </div>
+                    ))}
                   </div>
                 </>
               )}
@@ -992,10 +1066,11 @@ export function App() {
         <div className="overlay">
           <div className="panel">
             <h2>{state.gameWon ? 'Campaign Success!' : 'Clinic Crisis'}</h2>
-            <p>{state.gameWon ? 'You achieved the campaign goals. Great balance of outcomes, growth, and sustainability.' : 'Your clinic crossed a failure threshold. Review causes below and retry with a tighter plan.'}</p>
+            <p>{state.gameWon ? 'You hit your campaign targets with a sustainable clinic model.' : 'A fail threshold was crossed. Use the reasons + coaching below before your next run.'}</p>
             {!state.gameWon && (
               <ul>
                 {inferFailureReasons(state).map((reason) => <li key={reason}>{reason}</li>)}
+                {latestWeeklyReport && <li>Last weekly risk signal: {latestWeeklyReport.topRisk}</li>}
                 <li>Current cash: ${Math.round(state.cash)} · reputation: {state.reputation.toFixed(0)} · fatigue: {(state.fatigueIndex * 100).toFixed(0)}%</li>
               </ul>
             )}
@@ -1005,8 +1080,15 @@ export function App() {
                 <li>Reputation {state.reputation.toFixed(0)} / {state.campaignGoal.targetReputation}</li>
                 <li>Cash ${Math.round(state.cash)} / ${state.campaignGoal.targetCash}</li>
                 <li>District tier {state.districtTier} · Objectives complete {state.objectiveProgress.filter((item) => item.completed).length}/{state.objectiveProgress.length}</li>
+                {latestWeeklyReport && <li>Last weekly report: {latestWeeklyReport.topRisk}</li>}
               </ul>
             )}
+            <div className="summary-box">
+              <strong>Next-run coaching</strong>
+              <ul>
+                {coachingPriorities.map((tip) => <li key={`overlay-${tip}`}>{tip}</li>)}
+              </ul>
+            </div>
             <div className="row">
               <button onClick={() => saveToSlot(1)}>Save Snapshot</button>
               <button onClick={() => startGame(state.mode)}>Retry {state.mode}</button>
