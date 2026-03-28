@@ -381,9 +381,47 @@ export interface DaySummary {
     equipment: number;
     burnout: number;
   };
+  patientThoughts: ThoughtInsight[];
+  staffThoughts: ThoughtInsight[];
+  topComplaints: DiagnosticCategory[];
+  topPositives: DiagnosticCategory[];
+  serviceLinePerformance: ServiceLineInsight[];
   notes: string[];
   layoutFlow?: LayoutFlowSummary;
   schedule: ScheduleMetrics;
+}
+
+export type InsightSeverity = 'low' | 'medium' | 'high';
+
+export interface ThoughtInsight {
+  id: string;
+  actor: 'patient' | 'staff';
+  category: string;
+  severity: InsightSeverity;
+  text: string;
+  cause: string;
+  metric: number;
+  relatedService?: ServiceId;
+}
+
+export interface DiagnosticCategory {
+  category: string;
+  label: string;
+  score: number;
+  severity: InsightSeverity;
+  reason: string;
+  relatedService?: ServiceId;
+}
+
+export interface ServiceLineInsight {
+  serviceId: ServiceId;
+  label: string;
+  profit: number;
+  marginPct: number;
+  attended: number;
+  failures: number;
+  avgOutcome: number;
+  status: 'strong' | 'watch' | 'critical';
 }
 
 export interface WeeklyLedger {
