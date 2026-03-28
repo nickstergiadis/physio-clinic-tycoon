@@ -12,7 +12,7 @@ import {
   UpgradeDefinition
 } from '../types/game';
 
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 
 export const PATIENT_ARCHETYPES: PatientArchetype[] = [
   {

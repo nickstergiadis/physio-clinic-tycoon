@@ -47,6 +47,9 @@ button.danger { background: #c44747; }
 .warn { color: #9b2f2f; font-weight: 700; }
 .hint-box { margin-top: 0.7rem; padding: 0.75rem; border-radius: 10px; background: #f5fbef; border: 1px solid #d6ebc6; }
 .summary-box { margin-top: 0.7rem; padding: 0.75rem; border-radius: 10px; background: #f1f8fc; border: 1px solid #d5e8f3; }
+.incident-card { margin-top: 0.55rem; padding: 0.6rem; border: 1px solid #d4e1ec; border-radius: 10px; background: #fbfdff; display: grid; gap: 0.2rem; }
+.incident-card small { color: #345066; }
+.incident-decision { margin-top: 0.35rem; padding-top: 0.35rem; border-top: 1px dashed #c8d8e6; display: grid; gap: 0.35rem; }
 
 .layout-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.35rem; }
 .cell { aspect-ratio: 1/1; border-radius: 8px; background: #dde9f2; color: #1f3d53; }

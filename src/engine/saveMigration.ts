@@ -70,6 +70,13 @@ export const migrateStateByVersion = (state: Partial<GameState>, fromVersion: nu
     };
   }
 
+  if (fromVersion < 10) {
+    return {
+      ...state,
+      activeIncidents: state.activeIncidents ?? undefined
+    };
+  }
+
   return state;
 };
 
@@ -189,6 +196,32 @@ export const sanitizeState = (state: GameState): GameState => {
       spilloverMinutes: migrated.latestSchedule?.spilloverMinutes ?? base.latestSchedule.spilloverMinutes,
       unusedGaps: migrated.latestSchedule?.unusedGaps ?? base.latestSchedule.unusedGaps
     },
+    activeIncidents: Array.isArray(migrated.activeIncidents)
+      ? migrated.activeIncidents
+          .filter((incident) => typeof incident?.id === 'string' && typeof incident?.name === 'string')
+          .map((incident) => ({
+            id: incident.id,
+            chainId: incident.chainId ?? incident.id,
+            name: incident.name,
+            description: incident.description ?? '',
+            startedDay: incident.startedDay ?? base.day,
+            daysRemaining: Math.max(0, incident.daysRemaining ?? 0),
+            stage: incident.stage === 'trigger' || incident.stage === 'resolution' ? incident.stage : 'ongoing',
+            effectsSummary: incident.effectsSummary ?? '',
+            ongoingEffects: {
+              ...incident.ongoingEffects,
+              modifierPatch: incident.ongoingEffects?.modifierPatch ?? {}
+            },
+            pendingDecision: incident.pendingDecision
+              ? {
+                  stage: incident.pendingDecision.stage === 'resolution' ? 'resolution' : 'trigger',
+                  prompt: incident.pendingDecision.prompt ?? '',
+                  options: Array.isArray(incident.pendingDecision.options) ? incident.pendingDecision.options : [],
+                  defaultOptionId: incident.pendingDecision.defaultOptionId ?? incident.pendingDecision.options?.[0]?.id ?? ''
+                }
+              : undefined
+          }))
+      : base.activeIncidents,
     eventLog: Array.isArray(migrated.eventLog) ? migrated.eventLog : base.eventLog,
     settings: {
       soundEnabled: Boolean(migrated.settings?.soundEnabled ?? base.settings.soundEnabled),
