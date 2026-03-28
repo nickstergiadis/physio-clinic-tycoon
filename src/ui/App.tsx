@@ -43,7 +43,10 @@ const ROLE_LABELS: Record<StaffRoleId, string> = {
   physio: 'Physio',
   assistant: 'Assistant',
   frontDesk: 'Front Desk',
-  specialist: 'Specialist'
+  specialist: 'Specialist',
+  careCoordinator: 'Care Coord.',
+  manualTherapist: 'Manual Tx',
+  strengthCoach: 'Strength Coach'
 };
 
 const ROOM_ABBR: Record<RoomTypeId, string> = {
@@ -52,7 +55,10 @@ const ROOM_ABBR: Record<RoomTypeId, string> = {
   treatment: 'TRT',
   gym: 'GYM',
   vestibularLab: 'VEST',
-  hydro: 'HYD'
+  hydro: 'HYD',
+  manualSuite: 'MAN',
+  recoveryStudio: 'NEU',
+  telehealthPod: 'TEL'
 };
 
 const formatDateTime = (timestamp: number) => new Date(timestamp).toLocaleString();
@@ -320,7 +326,9 @@ export function App() {
     { done: state.latestSummary ? state.latestSummary.profit > 0 : false, label: 'Finish a profitable day' }
   ];
 
-  const clinicianScheduled = state.staff.some((s) => s.scheduled && (s.role === 'physio' || s.role === 'assistant' || s.role === 'specialist'));
+  const clinicianScheduled = state.staff.some((s) =>
+    s.scheduled && (s.role === 'physio' || s.role === 'assistant' || s.role === 'specialist' || s.role === 'manualTherapist' || s.role === 'strengthCoach')
+  );
   const emptyTiles = state.maxClinicSize - state.rooms.length;
   const itemEffects = getItemEffectTotals(state);
   const isItemTool = selectedBuildRoom ? BUILD_ITEMS.some((item) => item.id === selectedBuildRoom) : false;

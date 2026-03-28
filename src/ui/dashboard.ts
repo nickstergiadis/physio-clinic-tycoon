@@ -65,7 +65,7 @@ export const getClinicDrivers = (state: GameState): MetricDriver[] => {
 
 export const getStaffInsights = (state: GameState): StaffInsight[] => {
   const scheduled = state.staff.filter((member) => member.scheduled && member.shift !== 'off');
-  const clinicalScheduled = scheduled.filter((member) => ['physio', 'assistant', 'specialist'].includes(member.role));
+  const clinicalScheduled = scheduled.filter((member) => ['physio', 'assistant', 'specialist', 'manualTherapist', 'strengthCoach'].includes(member.role));
   const avgFatigue = average(scheduled.map((member) => member.fatigue));
   const avgMorale = average(scheduled.map((member) => member.morale));
   const frontDeskCoverage = staffByRole(scheduled, 'frontDesk').length;
@@ -73,7 +73,7 @@ export const getStaffInsights = (state: GameState): StaffInsight[] => {
   return [
     {
       label: 'Clinical coverage',
-      value: `${clinicalScheduled.length}/${Math.max(1, state.staff.length - staffByRole(state.staff, 'frontDesk').length)} scheduled`,
+      value: `${clinicalScheduled.length}/${Math.max(1, state.staff.length - staffByRole(state.staff, 'frontDesk').length - staffByRole(state.staff, 'careCoordinator').length)} scheduled`,
       tone: clinicalScheduled.length === 0 ? 'negative' : clinicalScheduled.length <= 1 ? 'neutral' : 'positive'
     },
     {
