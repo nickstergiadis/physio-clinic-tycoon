@@ -60,12 +60,29 @@ button.danger { background: #c44747; }
 
 .patient-list, .upgrade-list { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 .insight-list { display: grid; gap: 0.45rem; margin-bottom: 0.9rem; }
-.insight-row { border-radius: 10px; padding: 0.5rem 0.65rem; display: grid; gap: 0.15rem; border: 1px solid transparent; }
+.insight-row { border-radius: 10px; padding: 0.5rem 0.65rem; display: grid; gap: 0.15rem; border: 1px solid transparent; text-align: left; }
+button.insight-row { width: 100%; color: inherit; }
 .mini-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.45rem; margin-bottom: 0.6rem; }
 .mini-metric { border-radius: 10px; padding: 0.45rem 0.6rem; background: #f7fbff; display: grid; gap: 0.1rem; }
 .tone-positive { background: #eefaf3; border-color: #c4e7d0; color: #135230; }
 .tone-negative { background: #fff3f1; border-color: #f1c4bd; color: #8a2e2e; }
 .tone-neutral { background: #f6f8fb; border-color: #dde5ee; color: #364e63; }
+.severity-low { box-shadow: inset 3px 0 0 #6ebd8b; }
+.severity-medium { box-shadow: inset 3px 0 0 #e6b84f; }
+.severity-high { box-shadow: inset 3px 0 0 #d86969; }
+.service-line-chip {
+  width: 100%;
+  margin-bottom: 0.35rem;
+  text-align: left;
+  display: grid;
+  gap: 0.15rem;
+  background: #f4f8fb;
+  color: #1b3a4f;
+  border: 1px solid #d1e0eb;
+}
+.service-line-chip.status-strong { border-color: #8cc8a2; background: #effaf3; }
+.service-line-chip.status-watch { border-color: #d7dde4; background: #f7f9fc; }
+.service-line-chip.status-critical { border-color: #efb1b1; background: #fff1f1; }
 
 .overlay { position: fixed; inset: 0; background: rgba(12, 20, 31, 0.5); display: grid; place-items: center; }
 .campaign-box { margin-top: 1rem; padding: 0.8rem; border-radius: 10px; background: #f1f8fc; }

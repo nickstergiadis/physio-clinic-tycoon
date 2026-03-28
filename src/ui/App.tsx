@@ -87,6 +87,12 @@ const POLICY_LABELS: Record<BookingPolicy, string> = {
   aggressive: 'Aggressive (Overbooked)'
 };
 
+const SEVERITY_BADGE: Record<'low' | 'medium' | 'high', string> = {
+  low: 'severity-low',
+  medium: 'severity-medium',
+  high: 'severity-high'
+};
+
 export function App() {
   const [screen, setScreen] = useState<Screen>('menu');
   const [state, setState] = useState<GameState | null>(null);
@@ -95,6 +101,7 @@ export function App() {
   const [selectedScenario, setSelectedScenario] = useState<ScenarioId>('community_rebuild');
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyPresetId>('standard');
   const [actionMessage, setActionMessage] = useState<string>('');
+  const [diagnosticFocus, setDiagnosticFocus] = useState<string | null>(null);
 
   useEffect(() => {
     setSlots(loadSlots());
@@ -321,6 +328,9 @@ export function App() {
   const staffInsights = getStaffInsights(state);
   const demandPressure = getDemandPressure(state.latestSummary);
   const clinicDrivers = getClinicDrivers(state);
+  const topServiceLines = state.latestSummary?.serviceLinePerformance ?? [];
+  const bestServiceLines = topServiceLines.filter((line) => line.attended > 0).slice(0, 3);
+  const worstServiceLines = [...topServiceLines].sort((a, b) => (b.failures - b.attended * 0.4) - (a.failures - a.attended * 0.4)).slice(0, 3);
 
   const alerts: string[] = [];
   if (!clinicianScheduled) alerts.push('No clinician is scheduled. You will treat 0 patients.');
@@ -428,6 +438,60 @@ export function App() {
                   </div>
                 ))}
               </div>
+              {state.latestSummary && (
+                <>
+                  <h3>Top Clinic Issues</h3>
+                  <div className="insight-list">
+                    {state.latestSummary.topComplaints.map((issue) => (
+                      <button
+                        key={`${issue.category}-${issue.reason}`}
+                        className={`insight-row tone-negative ${SEVERITY_BADGE[issue.severity]}`}
+                        onClick={() => setDiagnosticFocus(issue.category)}
+                        title="Drill down this issue"
+                      >
+                        <strong>{issue.label}</strong>
+                        <small>{issue.reason}</small>
+                      </button>
+                    ))}
+                    {state.latestSummary.topComplaints.length === 0 && <small>No major issues flagged from simulation inputs.</small>}
+                  </div>
+                  <h3>Top Positive Drivers</h3>
+                  <div className="insight-list">
+                    {state.latestSummary.topPositives.map((driver) => (
+                      <button
+                        key={`${driver.category}-${driver.reason}`}
+                        className={`insight-row tone-positive ${SEVERITY_BADGE[driver.severity]}`}
+                        onClick={() => setDiagnosticFocus(driver.category)}
+                        title="Drill down this driver"
+                      >
+                        <strong>{driver.label}</strong>
+                        <small>{driver.reason}</small>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid-2">
+                    <div className="summary-box">
+                      <h4>Most Profitable Service Lines</h4>
+                      {bestServiceLines.map((line) => (
+                        <button key={`best-${line.serviceId}`} className={`service-line-chip status-${line.status}`} onClick={() => setDiagnosticFocus(line.serviceId)}>
+                          <strong>{line.label}</strong>
+                          <small>Profit {formatSignedCurrency(line.profit)} · Margin {line.marginPct}% · Visits {line.attended}</small>
+                        </button>
+                      ))}
+                      {bestServiceLines.length === 0 && <small>Run more days to establish service profitability trends.</small>}
+                    </div>
+                    <div className="summary-box">
+                      <h4>Most Problematic Service Lines</h4>
+                      {worstServiceLines.map((line) => (
+                        <button key={`worst-${line.serviceId}`} className={`service-line-chip status-${line.status}`} onClick={() => setDiagnosticFocus(line.serviceId)}>
+                          <strong>{line.label}</strong>
+                          <small>Failures {line.failures} · Outcome {Math.round(line.avgOutcome * 100)}% · Profit {formatSignedCurrency(line.profit)}</small>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
               <h3>Event Log</h3>
               <ul>
                 {state.eventLog.length === 0 && <li>No events recorded yet.</li>}
@@ -673,6 +737,21 @@ export function App() {
               ))}
             </article>
             <article className="card">
+              <h3>Recent Staff Thoughts</h3>
+              <div className="insight-list">
+                {(state.latestSummary?.staffThoughts ?? []).map((thought) => (
+                  <button
+                    key={thought.id}
+                    className={`insight-row tone-${thought.severity === 'high' ? 'negative' : thought.severity === 'medium' ? 'neutral' : 'positive'} ${SEVERITY_BADGE[thought.severity]}`}
+                    onClick={() => setDiagnosticFocus(thought.category)}
+                    title={`Cause: ${thought.cause}`}
+                  >
+                    <strong>{thought.text}</strong>
+                    <small>{thought.cause}</small>
+                  </button>
+                ))}
+                {!(state.latestSummary?.staffThoughts.length) && <small>Run a day to generate staff reasoning from simulation outcomes.</small>}
+              </div>
               <h3>Hire Staff</h3>
               {STAFF_TEMPLATES.map((t) => {
                 const canAfford = state.cash >= t.hireCost;
@@ -724,6 +803,28 @@ export function App() {
                 </div>
               ))}
             </div>
+            <h4>Recent Patient Thoughts</h4>
+            <div className="insight-list">
+              {(state.latestSummary?.patientThoughts ?? []).map((thought) => (
+                <button
+                  key={thought.id}
+                  className={`insight-row tone-${thought.severity === 'high' ? 'negative' : thought.severity === 'medium' ? 'neutral' : 'positive'} ${SEVERITY_BADGE[thought.severity]}`}
+                  onClick={() => setDiagnosticFocus(thought.relatedService ?? thought.category)}
+                  title={`Cause: ${thought.cause}`}
+                >
+                  <strong>{thought.text}</strong>
+                  <small>{thought.cause}</small>
+                </button>
+              ))}
+              {!(state.latestSummary?.patientThoughts.length) && <small>Run a day to generate patient reasoning from real causes.</small>}
+            </div>
+            {diagnosticFocus && (
+              <div className="summary-box">
+                <h4>Drill-down: {diagnosticFocus}</h4>
+                <p>Focus is sourced from simulation diagnostics. Use this to cross-check staffing, room mix, booking policy, and service performance.</p>
+                <button className="ghost" onClick={() => setDiagnosticFocus(null)}>Clear focus</button>
+              </div>
+            )}
             <p>Current booked queue: {state.patientQueue.length}</p>
             <p>Active journeys: {state.patients.filter((patient) => patient.lifecycleState !== 'discharged' && patient.lifecycleState !== 'droppedOut').length} · Total tracked patients: {state.patients.length}</p>
             {state.patientQueue.length === 0 && <p>No patient queue yet. Run a day to generate demand.</p>}

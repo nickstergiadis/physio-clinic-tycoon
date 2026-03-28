@@ -1,4 +1,4 @@
-import { DaySummary, GameState, PatientVisit } from '../types/game';
+import { DaySummary, DiagnosticCategory, GameState, InsightSeverity, PatientVisit, ThoughtInsight } from '../types/game';
 import { average, clamp } from './utils';
 import { applyRandomEvent } from './events';
 import { BALANCE, getDifficultyPreset, sumUpgradeEffect } from './simulationConfig';
@@ -20,6 +20,105 @@ interface DemandBuild {
   lostUnbooked: number;
   lostServiceMismatch: number;
 }
+
+const severityFromScore = (score: number): InsightSeverity => (score >= 8 ? 'high' : score >= 4 ? 'medium' : 'low');
+
+const buildDiagnosticCategories = (inputs: {
+  avgWait: number;
+  avgOutcome: number;
+  docs: number;
+  utilization: number;
+  demand: DemandBuild;
+  visits: ReturnType<typeof resolveVisits>;
+  profit: number;
+  conversion: number;
+  attendance: number;
+  fatigueIndex: number;
+}) => {
+  const complaints: DiagnosticCategory[] = [];
+  const positives: DiagnosticCategory[] = [];
+  const pushComplaint = (category: string, label: string, score: number, reason: string) => {
+    if (score <= 0) return;
+    complaints.push({ category, label, score: Number(score.toFixed(1)), severity: severityFromScore(score), reason });
+  };
+  const pushPositive = (category: string, label: string, score: number, reason: string) => {
+    if (score <= 0) return;
+    positives.push({ category, label, score: Number(score.toFixed(1)), severity: severityFromScore(score), reason });
+  };
+
+  pushComplaint('wait', 'Long waits', inputs.avgWait / 5, `${inputs.avgWait.toFixed(0)} min average wait.`);
+  pushComplaint('capacity', 'Capacity overflow', inputs.visits.capacityLost * 0.9, `${inputs.visits.capacityLost} patients were unserved by capacity.`);
+  pushComplaint('attendance', 'No-show/cancel drag', (inputs.visits.noShows + inputs.visits.cancellations) * 0.8, `${inputs.visits.noShows + inputs.visits.cancellations} missed visits.`);
+  pushComplaint('staffing', 'Staff bottlenecks', inputs.visits.staffingBottlenecks * 1.2, `${inputs.visits.staffingBottlenecks} visits blocked by staffing.`);
+  pushComplaint('rooms', 'Room mismatch', (inputs.visits.roomBottlenecks + inputs.demand.lostServiceMismatch) * 0.85, `${inputs.visits.roomBottlenecks + inputs.demand.lostServiceMismatch} visits/leads blocked by room or service gaps.`);
+  pushComplaint('documentation', 'Documentation backlog', Math.max(0, inputs.docs - 8) * 0.8, `${inputs.docs.toFixed(1)} docs backlog units.`);
+  pushComplaint('burnout', 'Burnout pressure', inputs.fatigueIndex * 10, `${Math.round(inputs.fatigueIndex * 100)}% fatigue index.`);
+
+  pushPositive('profit', 'Strong daily profit', inputs.profit > 0 ? inputs.profit / 120 : 0, `Profit ${inputs.profit >= 0 ? '+' : '-'}$${Math.round(Math.abs(inputs.profit))}.`);
+  pushPositive('outcomes', 'Clinical outcomes', inputs.avgOutcome * 10, `${(inputs.avgOutcome * 100).toFixed(0)}% outcome score.`);
+  pushPositive('conversion', 'Lead conversion', inputs.conversion * 10, `${(inputs.conversion * 100).toFixed(0)}% of leads booked.`);
+  pushPositive('attendance', 'Attendance reliability', inputs.attendance * 10, `${(inputs.attendance * 100).toFixed(0)}% booking attendance.`);
+  pushPositive('utilization', 'Capacity utilization', Math.max(0, Math.min(10, (inputs.utilization - 45) / 5)), `${inputs.utilization.toFixed(1)}% utilization.`);
+
+  return {
+    complaints: complaints.sort((a, b) => b.score - a.score).slice(0, 3),
+    positives: positives.sort((a, b) => b.score - a.score).slice(0, 3)
+  };
+};
+
+const buildThoughts = (inputs: {
+  day: number;
+  avgWait: number;
+  avgOutcome: number;
+  docs: number;
+  demand: DemandBuild;
+  visits: ReturnType<typeof resolveVisits>;
+  utilization: number;
+  staffMorale: number;
+  staffFatigue: number;
+  topComplaints: DiagnosticCategory[];
+  topPositives: DiagnosticCategory[];
+}) => {
+  const patientThoughts: ThoughtInsight[] = [];
+  const staffThoughts: ThoughtInsight[] = [];
+
+  const addPatientThought = (category: string, severity: InsightSeverity, text: string, cause: string, metric: number, relatedService?: ThoughtInsight['relatedService']) => {
+    patientThoughts.push({ id: `pt-${inputs.day}-${patientThoughts.length}`, actor: 'patient', category, severity, text, cause, metric, relatedService });
+  };
+  const addStaffThought = (category: string, severity: InsightSeverity, text: string, cause: string, metric: number, relatedService?: ThoughtInsight['relatedService']) => {
+    staffThoughts.push({ id: `st-${inputs.day}-${staffThoughts.length}`, actor: 'staff', category, severity, text, cause, metric, relatedService });
+  };
+
+  if (inputs.avgWait > 35) addPatientThought('wait', 'high', 'Waited too long before treatment.', `Average wait hit ${inputs.avgWait.toFixed(0)} min.`, inputs.avgWait);
+  else if (inputs.avgWait > 18) addPatientThought('wait', 'medium', 'Reception felt a bit slow today.', `Average wait ${inputs.avgWait.toFixed(0)} min.`, inputs.avgWait);
+  else addPatientThought('wait', 'low', 'Got seen quickly with minimal waiting.', `Average wait ${inputs.avgWait.toFixed(0)} min.`, inputs.avgWait);
+
+  const missed = inputs.visits.noShows + inputs.visits.cancellations + inputs.visits.capacityLost;
+  if (missed > 0) addPatientThought('access', missed > 6 ? 'high' : 'medium', 'Could not get the slot I needed.', `${missed} patients missed care from no-shows/cancels/capacity.`, missed);
+  if (inputs.avgOutcome > 0.62) addPatientThought('outcome', 'low', 'Treatment felt effective today.', `${(inputs.avgOutcome * 100).toFixed(0)}% average outcome score.`, inputs.avgOutcome * 100);
+  else if (inputs.avgOutcome < 0.42) addPatientThought('outcome', 'high', 'Progress felt limited this visit.', `${(inputs.avgOutcome * 100).toFixed(0)}% average outcome score.`, inputs.avgOutcome * 100);
+
+  if (inputs.staffFatigue > 72) addStaffThought('fatigue', 'high', 'Team is stretched; pace is not sustainable.', `Average fatigue ${inputs.staffFatigue.toFixed(0)}/100.`, inputs.staffFatigue);
+  else if (inputs.staffFatigue > 55) addStaffThought('fatigue', 'medium', 'Fatigue is climbing by end of day.', `Average fatigue ${inputs.staffFatigue.toFixed(0)}/100.`, inputs.staffFatigue);
+  else addStaffThought('fatigue', 'low', 'Workload felt manageable this shift.', `Average fatigue ${inputs.staffFatigue.toFixed(0)}/100.`, inputs.staffFatigue);
+
+  if (inputs.docs > 12) addStaffThought('documentation', 'high', 'Documentation backlog slowed us down.', `${inputs.docs.toFixed(1)} docs backlog units.`, inputs.docs);
+  if (inputs.utilization > 95) addStaffThought('capacity', 'medium', 'Schedule was near max capacity all day.', `${inputs.utilization.toFixed(1)}% utilization.`, inputs.utilization);
+  if (inputs.staffMorale > 68) addStaffThought('morale', 'low', 'Patients responded well; morale improved.', `Average morale ${inputs.staffMorale.toFixed(0)}/100.`, inputs.staffMorale);
+  else if (inputs.staffMorale < 45) addStaffThought('morale', 'high', 'Morale dipped after a rough day.', `Average morale ${inputs.staffMorale.toFixed(0)}/100.`, inputs.staffMorale);
+
+  for (const issue of inputs.topComplaints.slice(0, 2)) {
+    addStaffThought(issue.category, issue.severity, `${issue.label} needs action next.`, issue.reason, issue.score);
+  }
+  for (const win of inputs.topPositives.slice(0, 1)) {
+    addPatientThought(win.category, 'low', `${win.label} improved the visit feel.`, win.reason, win.score);
+  }
+
+  return {
+    patientThoughts: patientThoughts.slice(0, 6),
+    staffThoughts: staffThoughts.slice(0, 6)
+  };
+};
 
 const buildDailyDemand = (state: GameState): DemandBuild => {
   const { leads, bookingRate } = calculateDemandInputs(state);
@@ -61,6 +160,8 @@ export const runDay = (state: GameState): GameState => {
   const avgOutcome = average(visits.outcomes);
   const avgWait = visits.attended > 0 ? visits.totalWait / visits.attended : 0;
   const utilization = capacity > 0 ? clamp(visits.attended / capacity, 0, 1.4) : 0;
+  const conversion = demand.leads > 0 ? demand.booked.length / demand.leads : 0;
+  const attendance = demand.booked.length > 0 ? visits.attended / demand.booked.length : 0;
 
   const adminReduction = sumUpgradeEffect(next, (effects) => effects.adminReduction);
   const itemEffects = getItemEffectTotals(next);
@@ -90,6 +191,33 @@ export const runDay = (state: GameState): GameState => {
   const referralMomentum = next.patients.filter((patient) => patient.lifecycleState === 'discharged' && patient.lastTransitionDay === next.day).length * 0.08;
   const referralsDelta = Math.round(clamp(reputationDelta * 0.48 + visits.attended * 0.038 - visits.capacityLost * 0.03 + 0.22 + referralMomentum - referralSaturationPenalty, -2, 4));
   const fatigueIndex = clamp(average(next.staff.map((staffMember) => staffMember.fatigue)) / 100, 0, 1);
+  const avgStaffMorale = average(next.staff.map((staffMember) => staffMember.morale));
+  const avgStaffFatigue = average(next.staff.map((staffMember) => staffMember.fatigue));
+  const diagnosticCategories = buildDiagnosticCategories({
+    avgWait,
+    avgOutcome,
+    docs,
+    utilization: utilization * 100,
+    demand,
+    visits,
+    profit,
+    conversion,
+    attendance,
+    fatigueIndex
+  });
+  const thoughts = buildThoughts({
+    day: next.day,
+    avgWait,
+    avgOutcome,
+    docs,
+    demand,
+    visits,
+    utilization: utilization * 100,
+    staffMorale: avgStaffMorale,
+    staffFatigue: avgStaffFatigue,
+    topComplaints: diagnosticCategories.complaints,
+    topPositives: diagnosticCategories.positives
+  });
 
   next.staff = next.staff.map((staffMember) => ({
     ...staffMember,
@@ -195,6 +323,11 @@ export const runDay = (state: GameState): GameState => {
       equipment: visits.equipmentBottlenecks,
       burnout: visits.burnoutPressure
     },
+    patientThoughts: thoughts.patientThoughts,
+    staffThoughts: thoughts.staffThoughts,
+    topComplaints: diagnosticCategories.complaints,
+    topPositives: diagnosticCategories.positives,
+    serviceLinePerformance: visits.serviceLines.sort((a, b) => b.profit - a.profit),
     notes: [...notes, `Demand sources: new leads ${demand.leads}, returning booked ${demand.returningBooked}, referrals ${demand.referrals}.`],
     layoutFlow: {
       avgTravelTiles: visits.layoutFlow.avgTravelTiles,

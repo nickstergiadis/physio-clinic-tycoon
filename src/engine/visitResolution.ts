@@ -1,5 +1,5 @@
 import { PATIENT_ARCHETYPES, ROOM_DEFS, SERVICES, STAFF_TEMPLATES } from '../data/content';
-import { GameState, PatientArchetype, PatientVisit, RoomTypeId, ServiceId, StaffMember } from '../types/game';
+import { GameState, PatientArchetype, PatientVisit, RoomTypeId, ServiceId, ServiceLineInsight, StaffMember } from '../types/game';
 import { BALANCE, getDifficultyPreset, sumUpgradeEffect } from './simulationConfig';
 import { average, clamp, rand } from './utils';
 import { markCompletedVisit, markNoShowVisit, markWaitingVisit } from './patientTransitions';
@@ -68,6 +68,7 @@ export interface VisitResolution {
     unusedGaps: number;
     slotsUsed: number;
   };
+  serviceLines: ServiceLineInsight[];
 }
 
 const staffServiceFit = (staff: StaffMember, archetype: PatientArchetype, serviceId: ServiceId, requiredRoom: RoomTypeId): number => {
@@ -123,6 +124,23 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
   let burnoutPressure = 0;
   const resolvedVisits: PatientVisit[] = [];
   const journeyEvents: VisitResolution['journeyEvents'] = [];
+  const serviceLineAccumulator = new Map<
+    ServiceId,
+    {
+      revenue: number;
+      costs: number;
+      attended: number;
+      failures: number;
+      outcomeSum: number;
+    }
+  >();
+
+  const ensureService = (serviceId: ServiceId) => {
+    if (!serviceLineAccumulator.has(serviceId)) {
+      serviceLineAccumulator.set(serviceId, { revenue: 0, costs: 0, attended: 0, failures: 0, outcomeSum: 0 });
+    }
+    return serviceLineAccumulator.get(serviceId)!;
+  };
 
   for (let i = 0; i < processable.length; i += 1) {
     const visit = markWaitingVisit(processable[i]);
@@ -132,6 +150,7 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
     if (!hasScheduledStaff) {
       staffingBottlenecks += 1;
       cancellations += 1;
+      ensureService(visit.service).failures += 1;
       journeyEvents.push({ patientId: visit.patientId, result: 'cancelled', wait: 0, outcome: 0, satisfaction: 0, service: visit.service });
       continue;
     }
@@ -140,6 +159,7 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
     if (serviceRooms.length === 0 || !hasRoom(state, service.requiredRoom) || !routeStats?.reachable) {
       roomBottlenecks += 1;
       cancellations += 1;
+      ensureService(visit.service).failures += 1;
       journeyEvents.push({ patientId: visit.patientId, result: 'cancelled', wait: 0, outcome: 0, satisfaction: 0, service: visit.service });
       continue;
     }
@@ -147,6 +167,7 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
     if (eligibleStaff.length === 0) {
       staffingBottlenecks += 1;
       cancellations += 1;
+      ensureService(visit.service).failures += 1;
       journeyEvents.push({ patientId: visit.patientId, result: 'cancelled', wait: 0, outcome: 0, satisfaction: 0, service: visit.service });
       continue;
     }
@@ -155,6 +176,7 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
     if (rand(state.seed + state.day * 41 + i) < cancellationChance) {
       cancellations += 1;
       schedule.missedAppointments += 1;
+      ensureService(visit.service).failures += 1;
       journeyEvents.push({ patientId: visit.patientId, result: 'cancelled', wait: 0, outcome: 0, satisfaction: 0, service: visit.service });
       continue;
     }
@@ -167,6 +189,7 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
     if (rand(state.seed + state.day * 31 + i) < noShowChance) {
       noShows += 1;
       schedule.missedAppointments += 1;
+      ensureService(visit.service).failures += 1;
       resolvedVisits.push(markNoShowVisit(visit));
       journeyEvents.push({ patientId: visit.patientId, result: 'noShow', wait: 0, outcome: 0, satisfaction: 0, service: visit.service });
       continue;
@@ -201,14 +224,21 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
     const satisfaction = clamp(0.7 + quality * 0.3 - (wait / 100) * archetype.satisfactionSensitivity - layoutFlow.satisfactionPenalty, 0, 1.2);
 
     const payerMultiplier = visit.insured ? BALANCE.insuredRevenueMultiplier : BALANCE.selfPayRevenueMultiplier;
-    revenue += service.baseRevenue * (1 + premiumBonus + facilityFit * 0.3) * payerMultiplier * preset.revenueMultiplier;
-    variableCosts += (service.baseRevenue * 0.14 + service.duration * 0.7) * (1 + modifier.variableCostShift);
+    const visitRevenue = service.baseRevenue * (1 + premiumBonus + facilityFit * 0.3) * payerMultiplier * preset.revenueMultiplier;
+    const visitVariableCost = (service.baseRevenue * 0.14 + service.duration * 0.7) * (1 + modifier.variableCostShift);
+    revenue += visitRevenue;
+    variableCosts += visitVariableCost;
     adminLoad += (service.adminLoad + archetype.adminBurden) * (1 - clamp(itemEffects.adminEfficiency, 0, 0.3));
     totalWait += wait;
     outcomes.push(outcome);
     attended += 1;
     resolvedVisits.push(markCompletedVisit(visit));
     journeyEvents.push({ patientId: visit.patientId, result: 'completed', wait, outcome, satisfaction, service: visit.service });
+    const line = ensureService(visit.service);
+    line.revenue += visitRevenue;
+    line.costs += visitVariableCost;
+    line.attended += 1;
+    line.outcomeSum += outcome;
 
     const scheduleNeedPressure = service.schedulingNeed === 'high' ? 0.2 : service.schedulingNeed === 'medium' ? 0.1 : 0.04;
     const overrunNoise = rand(state.seed + state.day * 557 + i * 19);
@@ -228,8 +258,49 @@ export const resolveVisits = (state: GameState, queue: PatientVisit[], capacity:
   schedule.missedAppointments += Math.max(0, queue.length - processable.length);
 
   for (const visit of queue.slice(effectiveCapacity)) {
+    ensureService(visit.service).failures += 1;
     journeyEvents.push({ patientId: visit.patientId, result: 'unserved', wait: 0, outcome: 0, satisfaction: 0, service: visit.service });
   }
 
-  return { revenue, variableCosts, adminLoad, totalWait, cancellations, noShows, attended, capacityLost, outcomes, staffingBottlenecks, roomBottlenecks, equipmentBottlenecks, burnoutPressure, resolvedVisits, layoutFlow, journeyEvents, schedule };
+  const serviceLines = [...serviceLineAccumulator.entries()].map(([serviceId, line]) => {
+    const service = getService(serviceId);
+    const profit = line.revenue - line.costs;
+    const marginPct = line.revenue > 0 ? (profit / line.revenue) * 100 : 0;
+    const avgOutcome = line.attended > 0 ? line.outcomeSum / line.attended : 0;
+    const failureRate = (line.failures + line.attended) > 0 ? line.failures / (line.failures + line.attended) : 0;
+    let status: ServiceLineInsight['status'] = 'watch';
+    if (profit > 120 && failureRate < 0.18 && avgOutcome > 0.58) status = 'strong';
+    else if (profit < -40 || failureRate > 0.38 || avgOutcome < 0.38) status = 'critical';
+    return {
+      serviceId,
+      label: service.name,
+      profit: Math.round(profit),
+      marginPct: Number(marginPct.toFixed(1)),
+      attended: line.attended,
+      failures: line.failures,
+      avgOutcome: Number(avgOutcome.toFixed(2)),
+      status
+    };
+  });
+
+  return {
+    revenue,
+    variableCosts,
+    adminLoad,
+    totalWait,
+    cancellations,
+    noShows,
+    attended,
+    capacityLost,
+    outcomes,
+    staffingBottlenecks,
+    roomBottlenecks,
+    equipmentBottlenecks,
+    burnoutPressure,
+    resolvedVisits,
+    layoutFlow,
+    journeyEvents,
+    schedule,
+    serviceLines
+  };
 };
