@@ -1,5 +1,18 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { loadSettings, loadSlots, saveSettings, saveSlot } from './persistence';
+import {
+  clearAllSaveData,
+  clearAutosave,
+  exportSlot,
+  getLatestProgress,
+  importSaveFromText,
+  insertImportedSlot,
+  loadAutosave,
+  loadSettings,
+  loadSlots,
+  saveAutosave,
+  saveSettings,
+  saveSlot
+} from './persistence';
 import { createInitialState } from './state';
 
 const createMemoryStorage = (): Storage => {
@@ -53,12 +66,53 @@ describe('persistence', () => {
     expect(Array.isArray(slots[0].state.placedItems)).toBe(true);
   });
 
+  it('persists and clears autosave separately from manual slots', () => {
+    const state = createInitialState('campaign');
+    saveSlot('slot-1', 'Manual', state);
+    const auto = saveAutosave({ ...state, day: 2 }, 'Autosave day 2');
+
+    expect(loadSlots()).toHaveLength(1);
+    expect(loadAutosave()?.label).toBe('Autosave day 2');
+    expect(getLatestProgress()?.source).toBe('autosave');
+
+    clearAutosave();
+    expect(loadAutosave()).toBeNull();
+    expect(auto.id).toBe('autosave');
+  });
+
+  it('exports and imports save files', () => {
+    const state = createInitialState('sandbox');
+    saveSlot('slot-1', 'Sandbox test', state);
+    const raw = exportSlot(loadSlots()[0]);
+
+    const imported = importSaveFromText(raw);
+    expect(imported.label.startsWith('Imported:')).toBe(true);
+
+    const nextSlots = insertImportedSlot(imported);
+    expect(nextSlots[0].id.startsWith('import-')).toBe(true);
+  });
+
+  it('fails import for malformed payloads', () => {
+    expect(() => importSaveFromText('{bad')).toThrow('Invalid JSON file.');
+    expect(() => importSaveFromText(JSON.stringify({ nope: true }))).toThrow('Unsupported save file format.');
+  });
+
   it('persists settings', () => {
     saveSettings({ soundEnabled: false, ambientEnabled: true, showTutorialHints: false });
     const settings = loadSettings();
     expect(settings.soundEnabled).toBe(false);
     expect(settings.ambientEnabled).toBe(true);
     expect(settings.showTutorialHints).toBe(false);
+  });
+
+  it('clears all local save data', () => {
+    const state = createInitialState('campaign');
+    saveSlot('slot-1', 'Campaign Save', state);
+    saveAutosave(state, 'Auto');
+
+    clearAllSaveData();
+    expect(loadSlots()).toHaveLength(0);
+    expect(loadAutosave()).toBeNull();
   });
 
   it('preserves new progression state across save/load', () => {
