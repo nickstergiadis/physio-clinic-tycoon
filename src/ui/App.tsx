@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { type ChangeEvent, useEffect, useRef, useState } from 'react';
 import { BUILD_ITEMS, CAMPAIGN_SCENARIOS, DIFFICULTY_PRESETS, ROOM_DEFS, SERVICES, STAFF_TEMPLATES, UPGRADES } from '../data/content';
 import {
   assignStaffRoom,
@@ -21,7 +21,21 @@ import {
   setBookingPolicy,
   chooseIncidentDecision
 } from '../engine/simulation';
-import { deleteSlot, loadSettings, loadSlots, saveSettings, saveSlot } from '../engine/persistence';
+import {
+  clearAllSaveData,
+  clearAutosave,
+  deleteSlot,
+  exportSlot,
+  getLatestProgress,
+  importSaveFromText,
+  insertImportedSlot,
+  loadAutosave,
+  loadSettings,
+  loadSlots,
+  saveAutosave,
+  saveSettings,
+  saveSlot
+} from '../engine/persistence';
 import { addCash, fastForwardDays, setHighNoShowMode, spawnSamplePatients } from '../engine/devTools';
 import { createInitialState } from '../engine/state';
 import { BookingPolicy, BuildItemId, DaySummary, DifficultyPresetId, GameMode, GameState, RoomTypeId, SaveSlot, ScenarioId, Screen, ServiceId, StaffRoleId, WeeklyReport } from '../types/game';
@@ -62,7 +76,8 @@ const ROOM_ABBR: Record<RoomTypeId, string> = {
 };
 
 const formatDateTime = (timestamp: number) => new Date(timestamp).toLocaleString();
-const DEV_PANEL_ENABLED = Boolean(import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEV_PANEL === 'true');
+const DEV_PANEL_ENABLED = Boolean(import.meta.env.DEV);
+const APP_VERSION = '1.0.0-beta';
 
 const summarizeUpgradeEffects = (effects: (typeof UPGRADES)[number]['effects']) => {
   const chips: string[] = [];
@@ -148,14 +163,18 @@ export function App() {
   const [screen, setScreen] = useState<Screen>('menu');
   const [state, setState] = useState<GameState | null>(null);
   const [slots, setSlots] = useState<SaveSlot[]>([]);
+  const [autosave, setAutosave] = useState<SaveSlot | null>(null);
   const [selectedBuildRoom, setSelectedBuildRoom] = useState<RoomTypeId | 'path' | BuildItemId | null>(null);
   const [selectedScenario, setSelectedScenario] = useState<ScenarioId>('community_rebuild');
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyPresetId>('standard');
   const [actionMessage, setActionMessage] = useState<string>('');
   const [diagnosticFocus, setDiagnosticFocus] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+  const lastAutosavedDayRef = useRef<number | null>(null);
 
   useEffect(() => {
     setSlots(loadSlots());
+    setAutosave(loadAutosave());
   }, []);
 
   useEffect(() => {
@@ -197,11 +216,20 @@ export function App() {
     return () => clearInterval(id);
   }, [screen, state?.paused, state?.speed, state?.gameOver, state?.gameWon]);
 
+  useEffect(() => {
+    if (!state || screen !== 'inGame' || !state.latestSummary) return;
+    if (lastAutosavedDayRef.current === state.day) return;
+    const autosaveEntry = saveAutosave(state, `${state.mode.toUpperCase()} Autosave · W${state.week} D${state.day}`);
+    lastAutosavedDayRef.current = state.day;
+    setAutosave(autosaveEntry);
+  }, [screen, state]);
+
   const startGame = (mode: GameMode) => {
     const initial = createInitialState(mode, selectedScenario, selectedDifficulty);
     initial.settings = loadSettings();
     setState(initial);
     setSelectedBuildRoom('treatment');
+    lastAutosavedDayRef.current = null;
     setActionMessage('Welcome! Run day 1, then either add a room or hire one staff member.');
     setScreen('inGame');
   };
@@ -209,15 +237,17 @@ export function App() {
   const cloneState = (source: GameState): GameState => JSON.parse(JSON.stringify(source)) as GameState;
 
   const continueLatest = () => {
-    const newest = [...slots].sort((a, b) => b.timestamp - a.timestamp)[0];
-    if (!newest) return;
-    setState(cloneState(newest.state));
+    const latest = getLatestProgress();
+    if (!latest) return;
+    setState(cloneState(latest.entry.state));
     setScreen('inGame');
-    setActionMessage(`Loaded ${newest.label}.`);
+    lastAutosavedDayRef.current = latest.entry.state.day;
+    setActionMessage(`Loaded ${latest.source === 'autosave' ? 'autosave' : 'manual save'}: ${latest.entry.label}.`);
   };
 
   if (screen === 'menu') {
-    const newest = [...slots].sort((a, b) => b.timestamp - a.timestamp)[0];
+    const newestManual = [...slots].sort((a, b) => b.timestamp - a.timestamp)[0];
+    const latest = getLatestProgress();
     return (
       <div className="shell menu">
         <div className="menu-hero panel">
@@ -232,12 +262,20 @@ export function App() {
         </div>
         <div className="menu-actions panel">
           <button onClick={() => setScreen('newGame')}>New Game</button>
-          <button disabled={!newest} onClick={continueLatest} title={!newest ? 'No save found yet' : `Load ${newest.label}`}>Continue Latest Save</button>
+          <button disabled={!latest} onClick={continueLatest} title={!latest ? 'No save found yet' : `Load ${latest.entry.label}`}>Continue Latest Progress</button>
           <button onClick={() => setScreen('loadGame')}>Load / Manage Saves</button>
           <button onClick={() => setScreen('tutorial')}>How to Play (2 min)</button>
           <button onClick={() => setScreen('settings')}>Settings</button>
         </div>
-        {newest && <p className="subtitle menu-latest">Latest save: {newest.label} · {formatDateTime(newest.timestamp)}</p>}
+        {latest && (
+          <p className="subtitle menu-latest">
+            Latest progress: <strong>{latest.source === 'autosave' ? 'Autosave' : 'Manual save'}</strong> · {latest.entry.label} · {formatDateTime(latest.entry.timestamp)}
+          </p>
+        )}
+        {autosave && newestManual && autosave.timestamp > newestManual.timestamp && (
+          <p className="subtitle menu-latest">Autosave is newer than manual save slots.</p>
+        )}
+        <p className="menu-footer">Public beta {APP_VERSION}</p>
       </div>
     );
   }
@@ -282,9 +320,66 @@ export function App() {
   }
 
   if (screen === 'loadGame') {
+    const latest = getLatestProgress();
+    const downloadSave = (slot: SaveSlot) => {
+      const blob = new Blob([exportSlot(slot)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `physio-save-${slot.id}-${new Date(slot.timestamp).toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setActionMessage(`Exported ${slot.label}.`);
+    };
+
+    const loadEntry = (entry: SaveSlot, source: 'autosave' | 'manual') => {
+      setState(cloneState(entry.state));
+      setScreen('inGame');
+      lastAutosavedDayRef.current = entry.state.day;
+      setActionMessage(`Loaded ${source === 'autosave' ? 'autosave' : 'manual save'}: ${entry.label}.`);
+    };
+
+    const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+      if (!file) return;
+      try {
+        const raw = await file.text();
+        const importedSlot = importSaveFromText(raw);
+        setSlots(insertImportedSlot(importedSlot));
+        setActionMessage(`Imported save: ${importedSlot.label}.`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Import failed.';
+        setActionMessage(`Import failed: ${message}`);
+      }
+    };
+
     return (
       <div className="shell panel menu-screen">
         <h2>Load / Manage Saves</h2>
+        {latest && (
+          <p className="subtitle">
+            Continue will load <strong>{latest.source === 'autosave' ? 'Autosave' : 'Manual save'}</strong>: {latest.entry.label} ({formatDateTime(latest.entry.timestamp)})
+          </p>
+        )}
+        {autosave && (
+          <div className="row card">
+            <div>
+              <strong>Autosave</strong>
+              <div>{autosave.label}</div>
+              <small>Week {autosave.state.week} · Day {autosave.state.day} · {formatDateTime(autosave.timestamp)}</small>
+            </div>
+            <div className="row">
+              <button onClick={() => loadEntry(autosave, 'autosave')}>Load</button>
+              <button className="ghost" onClick={() => downloadSave(autosave)}>Export</button>
+              <button className="danger" onClick={() => {
+                clearAutosave();
+                setAutosave(null);
+                setActionMessage('Autosave cleared.');
+              }}>Clear Autosave</button>
+            </div>
+          </div>
+        )}
         {!slots.length && <p>No save slots found. Start a new game and press Save in the HUD.</p>}
         {slots.map((slot) => (
           <div key={slot.id} className="row card">
@@ -294,11 +389,23 @@ export function App() {
               <small>{formatDateTime(slot.timestamp)}</small>
             </div>
             <div className="row">
-              <button onClick={() => { setState(cloneState(slot.state)); setScreen('inGame'); setActionMessage(`Loaded ${slot.label}.`); }}>Load</button>
+              <button onClick={() => loadEntry(slot, 'manual')}>Load</button>
+              <button className="ghost" onClick={() => downloadSave(slot)}>Export</button>
               <button className="danger" onClick={() => setSlots(deleteSlot(slot.id))}>Delete</button>
             </div>
           </div>
         ))}
+        <div className="row">
+          <button onClick={() => importInputRef.current?.click()}>Import Save (JSON)</button>
+          <button className="danger" onClick={() => {
+            if (!window.confirm('Reset all local save data? This removes autosave and all manual save slots.')) return;
+            clearAllSaveData();
+            setSlots([]);
+            setAutosave(null);
+            setActionMessage('All local save data has been reset.');
+          }}>Reset All Local Save Data</button>
+        </div>
+        <input ref={importInputRef} type="file" accept="application/json,.json" onChange={handleImport} style={{ display: 'none' }} />
         <button className="ghost" onClick={() => setScreen('menu')}>Back</button>
       </div>
     );

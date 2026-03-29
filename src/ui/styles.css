@@ -137,6 +137,7 @@ button.danger {
 }
 .menu-actions button { width: 100%; text-align: left; padding: 0.72rem 0.95rem; }
 .menu-latest { font-size: 0.88rem; }
+.menu-footer { margin-top: 0.2rem; font-size: 0.74rem; color: #8eb3d5; letter-spacing: 0.06em; text-transform: uppercase; }
 .menu-screen {
   max-width: 1050px;
   margin: 0 auto;

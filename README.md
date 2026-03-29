@@ -1,77 +1,51 @@
-# Physiotherapy Clinic Tycoon
+# Physiotherapy Clinic Tycoon (Public Beta)
 
-A production-ready browser tycoon/management simulation where you build and scale a physiotherapy clinic. You balance patient outcomes, staffing, fatigue, documentation burden, reputation, and finances while expanding services and clinic capacity.
+Physiotherapy Clinic Tycoon is a browser-based management sim where you run a rehab clinic under financial and operational pressure. You scale patient throughput without sacrificing outcomes, morale, or cash runway.
 
-## Stack
+Current status: **public beta / release candidate**.
 
-- **TypeScript + React** (UI, interaction)
-- **Vite** (dev/build tooling)
-- **Vitest** (logic tests)
-- Fully static output for **GitHub Pages** deployment
+## Current Gameplay Scope
 
-## Core Gameplay Loop
+- **Campaign mode:** scenario-driven goals, failure thresholds, financing pressure, and progression targets.
+- **Sandbox mode:** lower pressure for experimentation with layouts, staffing, and upgrades.
+- Day-based simulation loop with bottlenecks (capacity, no-shows, documentation, fatigue).
+- Build + staffing + upgrade decision layers that directly affect queue flow and profitability.
+- Endgame overlays for win/loss paths.
 
-1. Start with a small clinic footprint and limited staff.
-2. Run day simulation to generate patients and operational outcomes.
-3. Earn revenue while paying payroll, rent, maintenance, and admin penalties.
-4. Optimize layout, hire/schedule staff, and reduce friction (no-shows, backlog, fatigue).
-5. Purchase upgrades to unlock new services/rooms and improve throughput and quality.
-6. Scale reputation/referrals while avoiding bankruptcy or operational collapse.
+## Save System
 
-## Implemented Systems
+The game uses local browser storage with migration + sanitization safeguards.
 
-- **Meta progression:** day/week progression, campaign goal, sandbox mode
-- **Patients:** 8 archetypes with unique economics and operational characteristics
-- **Staff:** 4 staff roles with hiring, scheduling, morale/fatigue behavior
-- **Rooms/layout:** tile-based 6x6 build mode, room unlocks and maintenance burden
-- **Services:** 9 service lines linked to room requirements
-- **Operational friction:** no-shows, documentation backlog, wait-time penalties, fatigue, random events
-- **Upgrades:** 10 strategic upgrades with nonlinear tradeoffs/unlocks
-- **Risk states:** bankruptcy, reputation collapse, burnout collapse + campaign success state
+- **Manual saves:** fixed slots from in-game HUD (Save 1 / Save 2 / Save 3).
+- **Autosave:** separate from manual slots, automatically updated after each completed day.
+- **Continue Latest Progress:** menu button resumes newest valid source (autosave or manual slot).
+- **Load / Manage Saves:** load, delete, export, import, clear autosave, and reset all save data.
+- **Import/Export:** portable JSON save files with metadata + versioned game state.
 
-## UI/UX Surface
+## Controls
 
-- Main menu
-- New game / mode select
-- Load game
-- Tutorial/help
-- Settings
-- In-game HUD with speed controls and pause
-- Build panel
-- Staff panel
-- Patient/caseload panel
-- Finance panel
-- Upgrades panel
-- End condition overlays (win/fail)
+- **Main loop:** `Advance Day` or unpause with speed controls (1x / 2x / 3x).
+- **Keyboard:**
+  - `Space` = pause/resume
+  - `1-6` = tab switching
+- **Build tab:** choose a room/item/path tool, then click layout tiles to place/remove.
 
-## Save System Notes
-
-- Save data stored in `localStorage`
-- Slot metadata and payload versioned (`SAVE_VERSION`)
-- Graceful fallback for missing/corrupt storage
-- Rotating quick-save from in-game HUD across three slots (`slot-1` to `slot-3`)
-- Save sanitization for partially corrupted/older payloads
-
-## Architecture Overview
-
-```text
-src/
-  data/content.ts              # typed content definitions (patients, staff, rooms, upgrades, services)
-  types/game.ts                # core domain types
-  engine/state.ts              # game initialization
-  engine/simulation.ts         # simulation loop + operations actions
-  engine/persistence.ts        # save/load/settings persistence with migration guard
-  ui/App.tsx                   # screen flow + gameplay UI
-  ui/styles.css                # visual design system and layout styling
-  engine/*.test.ts             # pure logic tests
-```
-
-## Local Development
+## Development
 
 ```bash
 npm install
 npm run dev
 ```
+
+## Testing
+
+```bash
+npm test
+npm run test:smoke
+```
+
+- `npm test` runs logic/unit coverage (engine + UI tests).
+- `npm run test:smoke` runs release-focused UI smoke/regression flows.
 
 ## Build
 
@@ -79,53 +53,18 @@ npm run dev
 npm run build
 ```
 
-Output is generated into `dist/` and is static-host compatible.
+Build artifacts are generated in `dist/`.
 
-## Deploy to GitHub Pages
+## GitHub Pages Deploy
 
-This project is configured with `base: './'` in `vite.config.ts` to support static relative-path hosting on GitHub Pages (project pages style).
+Deployment is handled by `.github/workflows/deploy-pages.yml`.
 
-Deployment assumptions:
+- Triggers on push to `main` (and manual dispatch).
+- Runs `npm ci` + `npm run build`.
+- Uploads `dist/` and deploys via `actions/deploy-pages`.
 
-- SPA uses hash-free routes only within in-memory React state, so no server rewrite rules are required.
-- Relative asset paths are required; publishing under repository pages path is supported.
-- `dist/index.html` must be served with JS module MIME types enabled (default for GitHub Pages).
+`vite.config.ts` uses a relative base path (`./`) for project-pages compatibility.
 
-### Manual deploy
+## Scope Notes
 
-```bash
-npm run build
-# publish dist/ to gh-pages branch or GitHub Pages artifact
-```
-
-### Optional GitHub Actions flow
-
-1. Build on push to `main`.
-2. Upload `dist/` artifact.
-3. Deploy artifact to GitHub Pages.
-
-(Repository owner can wire this with standard `actions/upload-pages-artifact` + `actions/deploy-pages`.)
-
-## Balance & Content Extension Guide
-
-To extend content:
-
-- Add new patient archetypes in `src/data/content.ts` (`PATIENT_ARCHETYPES`)
-- Add room/service pairs and requirements in `ROOM_DEFS` and `SERVICES`
-- Add strategic upgrades in `UPGRADES` with typed effects
-- Add/adjust operational event cards in `EVENT_CARDS` (`src/engine/simulation.ts`)
-
-Balance levers include:
-
-- revenue per service
-- no-show rates
-- fatigue gain/recovery
-- backlog penalty scaling
-- referral/reputation coupling
-- maintenance and wage pressure
-
-## Known Scope Choices
-
-- Audio is represented as toggleable settings without embedded sound assets in this MVP.
-- Save slots support multiple records, while UI currently emphasizes one-click quick-save behavior.
-- Layout uses premium UI cards and grid-based abstraction rather than freeform isometric rendering for MVP velocity and maintainability.
+This branch is focused on release hardening for public beta. It intentionally does **not** include Phase 2 systems like prestige/meta progression, marketing gameplay, staff career trees, or competitor simulation.
